@@ -14,6 +14,7 @@
 - D1 database `tg-tips-calculator-dev` exists.
 - Telegram bot token and owner Telegram ID are configured in Cloudflare as Worker secrets via GitHub Actions and are not committed.
 - GitHub Actions secrets configured by the user: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `TELEGRAM_BOT_TOKEN`, `ALLOWED_TELEGRAM_USER_IDS`, `OWNER_TELEGRAM_USER_ID`.
+- `ALLOWED_TELEGRAM_USER_IDS` now includes the owner plus at least one additional staff account for role verification; individual Telegram IDs are not stored in the repository.
 - The dev Mini App authenticates Telegram `initData` server-side and uses explicit Telegram-ID allowlisting for history/save access.
 - Employee selection supports: Александр, Александра, Анна, Арсик, Снежа; waiter 3 may be empty for a 2-person shift.
 - Money is stored as integer kopecks; server-side code recalculates distributions.
@@ -38,7 +39,7 @@
 - Manual Telegram verification confirms the owner identity is active (`владелец` shown in DEV), the owner can save an исправление for today's locked calculation, and the corrected result replaces the active totals while the app remains in DEV.
 
 ## Current blocker
-No infrastructure blocker. Remaining role checks require at least one additional staff Telegram ID in `ALLOWED_TELEGRAM_USER_IDS`: verify that the original submitter can replace the same day's calculation before 00:00 while a different staff member cannot. The owner payout flow also still needs one manual check that a recorded payout reduces the employee's outstanding monthly balance correctly.
+No infrastructure blocker. The updated allowlist must be propagated by a fresh DEV deployment, then the additional staff account must manually verify it can open protected DEV data but cannot replace the already-locked current day when it is not the original submitter. Verification that a normal employee can replace a day they originally submitted still requires a day first saved by that employee (naturally on the next suitable test day, unless the DEV day is deliberately reset). The owner payout flow also still needs one manual check that a recorded payout reduces the employee's outstanding monthly balance correctly.
 
 ## NEXT_ACTION
-Add one additional staff Telegram ID to `ALLOWED_TELEGRAM_USER_IDS`, redeploy DEV, and manually verify original-submitter-vs-other-staff correction permissions. After that, record one small owner-only payout and confirm the monthly outstanding balance is reduced by exactly that amount.
+Redeploy DEV with the updated allowlist. Then have the additional staff account reopen the DEV Mini App and verify access plus the lock on today's owner-submitted calculation. After that, record one small owner-only payout and confirm the monthly outstanding balance is reduced by exactly that amount.

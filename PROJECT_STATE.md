@@ -21,19 +21,21 @@
 - The polished dark UI and current-month counter have been manually checked inside Telegram.
 - The month counter is derived from calendar-month data, so a new month starts at zero without deleting older records; prior months remain accessible through history.
 
-## New daily lock / correction / payout rules
-- A bounded implementation is prepared on `feature/daily-lock-owner-payouts-v1`; feature-branch tests and syntax checks pass.
+## Daily lock / correction / payout rules
+- The implementation from `feature/daily-lock-owner-payouts-v1` is now on `dev`.
+- GitHub Actions tests and syntax checks pass on the feature and on `dev`.
+- Cloudflare dev deployment passes; migration `0002_daily_lock_and_payments.sql` has been applied successfully.
 - There is at most one active saved calculation per Moscow business date. The first allowed employee who saves locks that day for all other employees.
 - Saving is restricted server-side to the current `Europe/Moscow` business date.
 - Only the configured owner may replace the active calculation for the current day, and only before the Moscow date rolls over at 00:00. Replacement is atomic: the old row is deactivated for normal totals/history but retained as an audit row.
+- Existing same-day DEV test duplicates were reduced to the newest active row per date for normal history/totals; older rows remain only as audit data.
 - Actual cash payouts are stored in a separate D1 payment ledger. Only the owner may record a payout.
-- Period/month balances now use `distributed - paid`; the main monthly card and history summary show the remaining amount due after recorded payouts.
-- An owner-only payout form is placed in History, not on the primary calculation form. Its date determines which calendar month the payment reduces.
-- Migration `0002_daily_lock_and_payments.sql` adds active-row locking/audit fields, deduplicates existing same-day dev test rows to the newest active row, creates the one-active-day unique index, and adds the payments ledger.
-- CI now syntax-checks both Worker and Mini App scripts and runs tests on feature branches as well as `dev`.
+- Period/month balances use `distributed - paid`; the main monthly card and history summary show the remaining amount due after recorded payouts.
+- The owner-only payout form lives in History, not on the primary calculation form. Its date determines which calendar month the payment reduces.
+- CI syntax-checks both Worker and Mini App scripts and runs tests on feature branches as well as `dev`.
 
 ## Current blocker
-The owner-specific actions are intentionally fail-closed until a new GitHub Actions secret `OWNER_TELEGRAM_USER_ID` is configured. The current `ALLOWED_TELEGRAM_USER_IDS` can later be expanded with each staff member's Telegram ID so staff can calculate/save while remaining unable to correct calculations or record payouts.
+Owner-specific actions are intentionally fail-closed because the GitHub Actions secret `OWNER_TELEGRAM_USER_ID` is not configured yet. The current `ALLOWED_TELEGRAM_USER_IDS` can later be expanded with each staff member's Telegram ID so staff can calculate/save while remaining unable to correct calculations or record payouts.
 
 ## NEXT_ACTION
-Move the tested feature branch to `dev` and let Cloudflare apply migration `0002`/deploy the fail-closed owner-role implementation. Then add `OWNER_TELEGRAM_USER_ID` in GitHub Actions Secrets using the owner's Telegram ID already shown by the DEV Mini App, redeploy, and manually verify: one-save-per-day lock -> owner replacement before 00:00 Moscow -> owner payout -> net balance subtraction.
+Add `OWNER_TELEGRAM_USER_ID` in GitHub Actions Secrets using the owner's Telegram ID already shown by the DEV Mini App. Then trigger one dev deployment and manually verify: one-save-per-day lock -> owner replacement before 00:00 Moscow -> owner payout -> net balance subtraction.

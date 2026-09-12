@@ -153,7 +153,7 @@ function updateSaveAvailability() {
     return;
   }
   $('save').disabled = true;
-  $('save').textContent = '✓ Расчёт за сегодня сохранён';
+  $('save').textContent = '✓ Расчёт сохранён';
 }
 
 async function loadDayStatus() {
@@ -161,14 +161,34 @@ async function loadDayStatus() {
   const date = $('businessDate').value || businessTodayIso();
   try {
     currentDayStatus = await api(`/api/day-status?date=${encodeURIComponent(date)}`);
+    const today = currentDayStatus.currentBusinessDate || businessTodayIso();
+    const isToday = date === today;
+    const author = currentDayStatus.calculation?.createdByName || 'сотрудником';
+
     if (!currentDayStatus.hasCalculation) {
-      setStatus($('dayStatus'), 'Сегодня ещё нет сохранённого расчёта. Первый сохранённый расчёт станет итоговым за сутки.', 'ok');
+      if (isToday) {
+        setStatus($('dayStatus'), 'Сегодня ещё нет сохранённого расчёта. Первый сохранённый расчёт станет итоговым за сутки.', 'ok');
+      } else if (currentDayStatus.isOwner) {
+        setStatus($('dayStatus'), 'За выбранную дату сохранённого расчёта нет. Исправлять можно только уже существующие прошлые записи.', 'locked');
+      } else {
+        setStatus($('dayStatus'), 'Сотрудникам доступно сохранение только за текущий день.', 'locked');
+      }
     } else if (currentDayStatus.canReplace) {
-      const author = currentDayStatus.calculation?.createdByName || 'сотрудником';
-      setStatus($('dayStatus'), `Расчёт за сегодня уже сохранён (${author}). До 00:00 по Москве ты можешь заменить его исправленным расчётом.`, 'owner');
+      if (currentDayStatus.isOwner && !isToday) {
+        setStatus($('dayStatus'), `Расчёт за ${date} сохранён (${author}). Как владелец ты можешь исправить его в любое время.`, 'owner');
+      } else if (currentDayStatus.isDaySubmitter && isToday && !currentDayStatus.isOwner) {
+        setStatus($('dayStatus'), `Ты сохранил сегодняшний расчёт. До 00:00 по Москве можешь заменить его исправленным.`, 'owner');
+      } else if (currentDayStatus.isDaySubmitter && isToday) {
+        setStatus($('dayStatus'), `Сегодняшний расчёт сохранён тобой. До 00:00 можно исправить его; как владелец ты также можешь править прошлые дни.`, 'owner');
+      } else {
+        setStatus($('dayStatus'), `Расчёт за сегодня уже сохранён (${author}). Как владелец ты можешь заменить его исправленным.`, 'owner');
+      }
     } else {
-      const author = currentDayStatus.calculation?.createdByName || 'сотрудником';
-      setStatus($('dayStatus'), `Расчёт за сегодня уже сохранён (${author}). Повторное сохранение закрыто до следующего дня.`, 'locked');
+      if (isToday) {
+        setStatus($('dayStatus'), `Расчёт за сегодня уже сохранён (${author}). До 00:00 исправить его может только сотрудник, который сохранил расчёт первым, или владелец.`, 'locked');
+      } else {
+        setStatus($('dayStatus'), `Расчёт за ${date} сохранён (${author}). После 00:00 изменения доступны только владельцу.`, 'locked');
+      }
     }
   } catch (e) {
     currentDayStatus = null;
@@ -207,10 +227,10 @@ async function saveCalculation() {
   if (!lastCalculation) return;
   const replacing = Boolean(currentDayStatus?.hasCalculation);
   if (replacing && !currentDayStatus?.canReplace) {
-    return setStatus($('saveStatus'), 'Расчёт за сегодня уже сохранён другим сотрудником.', 'bad');
+    return setStatus($('saveStatus'), 'У тебя нет права исправлять сохранённый расчёт за эту дату.', 'bad');
   }
   if (replacing) {
-    const ok = await confirmAction('Заменить сегодняшний сохранённый расчёт? Старый вариант останется только в техническом журнале и перестанет влиять на суммы.');
+    const ok = await confirmAction('Заменить сохранённый расчёт за выбранный день? Старый вариант останется только в техническом журнале и перестанет влиять на суммы.');
     if (!ok) return;
   }
 
@@ -302,8 +322,13 @@ async function loadIdentity() {
     currentUser = await api('/api/whoami');
     const today = currentUser.currentBusinessDate || businessTodayIso();
     $('businessDate').value = today;
-    $('businessDate').min = today;
-    $('businessDate').max = today;
+    if (currentUser.isOwner) {
+      $('businessDate').removeAttribute('min');
+      $('businessDate').max = today;
+    } else {
+      $('businessDate').min = today;
+      $('businessDate').max = today;
+    }
     $('paymentDate').value = today;
     $('paymentDate').max = today;
     $('ownerPaymentCard').hidden = !currentUser.isOwner;
@@ -354,6 +379,12 @@ $('reset').addEventListener('click', reset);
 $('save').addEventListener('click', saveCalculation);
 $('savePayment').addEventListener('click', savePayment);
 $('loadHistory').addEventListener('click', loadHistory);
+$('businessDate').addEventListener('change', async () => {
+  lastCalculation = null;
+  $('results').style.display = 'none';
+  setStatus($('saveStatus'), '');
+  await loadDayStatus();
+});
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => openTab(b.dataset.tab)));
 document.querySelectorAll('.period').forEach(b => b.addEventListener('click', () => setPeriod(b.dataset.period)));
 ['total', 'morning', 'evening'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') calculate(); }));

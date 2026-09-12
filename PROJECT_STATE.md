@@ -19,13 +19,14 @@
 - Worker/D1 scaffold includes Telegram initData validation, fail-closed allowlisted access, calculation history, and per-employee summaries.
 - The dev Mini App successfully authenticated the first tester through `/api/whoami` inside Telegram.
 - The first tester allowlist is deployed and history access is enabled for that tester.
-- A real 2-person Telegram scenario has passed end-to-end: calculate -> save -> D1 persistence -> history read -> per-employee summary. The saved record and both 6,992.00 RUB employee totals were read back correctly for the test calculation.
+- A real 2-person Telegram scenario passed end-to-end: calculate -> save -> D1 persistence -> history read -> per-employee summary.
+- A real 3-person Telegram scenario also passed end-to-end. Control input `1500 / 300 / 300` produced `552 / 552 / 276` RUB, saved successfully, and the same three payouts were read back from history. The cumulative per-employee summary updated accordingly.
 - Employee selection supports: Александр, Александра, Анна, Арсик, Снежа; waiter 3 can be empty for a 2-person shift.
 - Money is stored as integer kopecks.
 - Latest relevant GitHub Actions tests and Cloudflare dev deployment are passing.
 
 ## Current blocker
-There is no infrastructure blocker. Before considering production cutover, the remaining functional gate is to verify one real 3-person calculation/save/history scenario inside Telegram because its common-pool split differs from the already-verified 2-person path.
+There is no known functional or infrastructure blocker for the tested MVP flow. Production cutover has not been authorized and `main` remains unchanged.
 
 ## NEXT_ACTION
-Verify one 3-person Telegram scenario end-to-end in the dev Mini App: calculate -> save -> history, and confirm the three payouts match the expected formula.
+Perform a bounded production-readiness review of `dev` against the current live `main` (code diff, CI, secrets/config expectations, and rollback/cutover steps) without modifying `main`. Then present one explicit cutover decision to the user for manual approval.

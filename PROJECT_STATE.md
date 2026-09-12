@@ -14,12 +14,11 @@
 - Money is stored as integer kopecks.
 - GitHub Actions tests on `dev` are passing.
 - Cloudflare Git-connect UI was abandoned because it loops back to GitHub App configuration.
-- GitHub Actions secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` have been added by the user.
-- `.github/workflows/deploy-dev.yml` now bootstraps the dev D1 database if needed, applies migrations, deploys the Worker/static assets, and configures the Telegram bot token as a Cloudflare Worker secret.
-- The first deploy workflow run completed safely with deployment steps skipped because `TELEGRAM_BOT_TOKEN` is not yet present in GitHub Secrets.
+- GitHub Actions secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `TELEGRAM_BOT_TOKEN` have been added by the user.
+- `.github/workflows/deploy-dev.yml` bootstraps the dev D1 database if needed, applies migrations, deploys the Worker/static assets, and configures the Telegram bot token as a Cloudflare Worker secret.
 
 ## Current blocker
-The dev Worker cannot validate Telegram Mini App sessions until the bot token is available to CI as the GitHub Actions secret `TELEGRAM_BOT_TOKEN`.
+The first real Cloudflare dev deployment is being triggered now. Until it succeeds, the dev URL, D1 database, and API availability are not yet confirmed.
 
 ## NEXT_ACTION
-Add the existing Telegram bot token to GitHub Actions Secrets as `TELEGRAM_BOT_TOKEN` without exposing it in chat. Then trigger the dev workflow with a state-only commit and review the Cloudflare deployment result.
+Review the triggered `Deploy dev to Cloudflare` GitHub Actions run. If it succeeds, confirm the Worker URL and `/api/health`, then configure the Telegram allowlist before testing history writes.

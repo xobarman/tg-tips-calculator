@@ -24,7 +24,21 @@ function splitEvenly(total, count) {
   const base = Math.floor(total / count); let remainder = total % count;
   return Array.from({ length: count }, () => base + (remainder-- > 0 ? 1 : 0));
 }
-function todayIso() { return new Date().toLocaleDateString('sv-SE'); }
+function isoLocalDate(date) {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+function todayIso() { return isoLocalDate(new Date()); }
+function monthBounds(offset = 0) {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+  const rawLabel = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(first);
+  return {
+    from: isoLocalDate(first),
+    to: isoLocalDate(last),
+    label: rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1),
+  };
+}
 function uniqueSelected() { return [$('employee1').value, $('employee2').value, $('employee3').value].filter(Boolean); }
 
 function populateSelect(select, { allowBlank = false, allLabel = null } = {}) {
@@ -99,6 +113,33 @@ async function api(path, options = {}) {
   return data;
 }
 
+async function loadMonthlyCounter() {
+  if (!API_BASE) return;
+  const period = monthBounds(0);
+  $('monthlyCard').hidden = false;
+  $('monthlyLabel').textContent = period.label;
+  $('monthlyCaption').textContent = 'Всего распределено за месяц';
+  $('monthlyPeople').innerHTML = '';
+
+  try {
+    const summary = await api(`/api/summary?from=${encodeURIComponent(period.from)}&to=${encodeURIComponent(period.to)}`);
+    const total = summary.items.reduce((sum, item) => sum + item.totalKopecks, 0);
+    $('monthlyTotal').textContent = moneyKopecks(total);
+
+    if (!summary.items.length) {
+      $('monthlyCaption').textContent = 'Новый месяц начался — сохранённых расчётов пока нет.';
+      return;
+    }
+
+    $('monthlyPeople').innerHTML = summary.items.map(item =>
+      `<div class="monthly-person"><span>${item.employeeName}</span><b>${moneyKopecks(item.totalKopecks)}</b></div>`
+    ).join('');
+  } catch (e) {
+    $('monthlyTotal').textContent = '—';
+    $('monthlyCaption').textContent = e.message;
+  }
+}
+
 async function saveCalculation() {
   if (!lastCalculation) return;
   $('save').disabled = true; setStatus($('saveStatus'), 'Сохраняю…');
@@ -106,16 +147,24 @@ async function saveCalculation() {
     await api('/api/calculations', { method: 'POST', body: JSON.stringify(lastCalculation) });
     setStatus($('saveStatus'), 'Сохранено в историю.', 'ok');
     tg?.HapticFeedback?.notificationOccurred('success');
+    loadMonthlyCounter().catch(() => {});
   } catch (e) { setStatus($('saveStatus'), e.message, 'bad'); $('save').disabled = false; }
 }
 
 function setPeriod(kind) {
+  if (kind === 'month' || kind === 'prev-month') {
+    const period = monthBounds(kind === 'prev-month' ? -1 : 0);
+    $('fromDate').value = period.from;
+    $('toDate').value = period.to;
+    return;
+  }
+
   const d = new Date();
   const y = d.getFullYear(), m = d.getMonth();
-  const start = kind === 'month' || d.getDate() <= 15 ? new Date(y, m, 1) : new Date(y, m, 16);
-  const end = kind === 'month' ? new Date(y, m + 1, 0) : (d.getDate() <= 15 ? new Date(y, m, 15) : new Date(y, m + 1, 0));
-  const iso = x => new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  $('fromDate').value = iso(start); $('toDate').value = iso(end);
+  const start = d.getDate() <= 15 ? new Date(y, m, 1) : new Date(y, m, 16);
+  const end = d.getDate() <= 15 ? new Date(y, m, 15) : new Date(y, m + 1, 0);
+  $('fromDate').value = isoLocalDate(start);
+  $('toDate').value = isoLocalDate(end);
 }
 
 async function loadHistory() {
@@ -155,6 +204,7 @@ function openTab(name) {
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $('calcTab').hidden = name !== 'calc'; $('historyTab').hidden = name !== 'history';
   if (name === 'history' && API_BASE) loadHistory();
+  if (name === 'calc' && API_BASE) loadMonthlyCounter();
 }
 
 populateSelect($('employee1')); populateSelect($('employee2')); populateSelect($('employee3'), { allowBlank: true }); populateSelect($('employeeFilter'), { allLabel: 'Все сотрудники' });
@@ -166,3 +216,4 @@ document.querySelectorAll('.period').forEach(b => b.addEventListener('click', ()
 ['total', 'morning', 'evening'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') calculate(); }));
 if (!API_BASE) $('devNotice').hidden = false;
 showDevIdentity();
+loadMonthlyCounter();

@@ -10,9 +10,16 @@
 </head>
 <body>
   <main class="wrap">
-    <header>
-      <h1>Распределение чаевых</h1>
-      <p class="subtitle">Комиссия 8% учитывается автоматически.</p>
+    <header class="app-header">
+      <div>
+        <div class="eyebrow">Энкор Сити · Чаевые</div>
+        <h1>Распределение чаевых</h1>
+        <p class="subtitle">Считаем смену, сохраняем историю и выплаты.</p>
+      </div>
+      <div class="commission-badge" aria-label="Комиссия 8 процентов">
+        <span>−8%</span>
+        <small>авто</small>
+      </div>
     </header>
 
     <nav class="tabs" aria-label="Разделы">
@@ -21,13 +28,27 @@
     </nav>
 
     <section id="calcTab">
-      <section class="card">
+      <section id="monthlyCard" class="card monthly-card" hidden>
+        <div class="monthly-head">
+          <div>
+            <div class="eyebrow">Счётчик месяца</div>
+            <div id="monthlyLabel" class="monthly-label">Текущий месяц</div>
+          </div>
+          <span class="live-dot" title="Считается по сохранённым записям"></span>
+        </div>
+        <div id="monthlyTotal" class="monthly-total">0,00 ₽</div>
+        <div id="monthlyCaption" class="monthly-caption">Всего распределено за месяц</div>
+        <div id="monthlyPeople" class="monthly-people"></div>
+      </section>
+
+      <section class="card calculator-card">
+        <div class="section-title">Смена</div>
         <div class="field">
           <label for="businessDate">Дата</label>
           <input id="businessDate" type="date" />
         </div>
 
-        <div class="field">
+        <div class="field total-field">
           <label for="total">Итог</label>
           <input id="total" inputmode="decimal" autocomplete="off" placeholder="Например, 15906" />
         </div>
@@ -43,6 +64,8 @@
           </div>
         </div>
 
+        <div class="staff-divider"><span>Сотрудники</span></div>
+
         <div class="field">
           <label for="employee1">Официант 1</label>
           <select id="employee1"></select>
@@ -54,7 +77,7 @@
         <div class="field">
           <label for="employee3">Официант 3</label>
           <select id="employee3"></select>
-          <div class="hint">Выбери «Нет третьего», если в смене только два официанта.</div>
+          <div class="hint">Если в смене двое — оставь «Нет третьего».</div>
         </div>
 
         <div class="actions">
@@ -64,12 +87,13 @@
         <div id="error" class="error"></div>
       </section>
 
-      <section id="results" class="card results">
+      <section id="results" class="card results result-card">
+        <div class="section-title">К выплате</div>
         <div id="resultLines"></div>
         <div class="details">
-          <div>Общая часть после 8%: <b id="commonNet">0 ₽</b></div>
-          <div>Утро + вечер после 8%: <b id="shiftNet">0 ₽</b></div>
-          <div class="sum-check">Всего распределено: <span id="distributed">0 ₽</span></div>
+          <div><span>Общая часть после 8%</span><b id="commonNet">0 ₽</b></div>
+          <div><span>Утро + вечер после 8%</span><b id="shiftNet">0 ₽</b></div>
+          <div class="sum-check"><span>Всего распределено</span><strong id="distributed">0 ₽</strong></div>
         </div>
         <button id="save" class="save-button" type="button">💾 Сохранить расчёт</button>
         <div id="saveStatus" class="status"></div>
@@ -77,10 +101,12 @@
     </section>
 
     <section id="historyTab" hidden>
-      <section class="card">
+      <section class="card history-filter-card">
+        <div class="section-title">Период</div>
         <div class="period-buttons">
-          <button class="secondary period" data-period="half">Текущая половина месяца</button>
-          <button class="secondary period" data-period="month">Весь месяц</button>
+          <button class="secondary period" data-period="half">Текущая половина</button>
+          <button class="secondary period" data-period="month">Этот месяц</button>
+          <button class="secondary period" data-period="prev-month">Прошлый месяц</button>
         </div>
         <div class="row">
           <div class="field">
@@ -96,12 +122,13 @@
           <label for="employeeFilter">Сотрудник</label>
           <select id="employeeFilter"></select>
         </div>
-        <button id="loadHistory">Показать</button>
+        <button id="loadHistory" class="compact-button">Показать</button>
         <div id="historyStatus" class="status"></div>
       </section>
 
-      <section id="summaryCard" class="card" hidden>
-        <h2>К выплате за период</h2>
+      <section id="summaryCard" class="card summary-card" hidden>
+        <div class="eyebrow">Итог периода</div>
+        <h2>К выплате</h2>
         <div id="summaryLines"></div>
       </section>
 
@@ -109,9 +136,12 @@
     </section>
 
     <section id="devNotice" class="card dev-notice" hidden>
-      <b>Режим разработки</b>
-      <div id="devNoticeText">Расчёт работает локально. История включится после подключения Cloudflare Worker.</div>
-      <div id="devIdentity" class="status"></div>
+      <div class="dev-badge">DEV</div>
+      <div>
+        <b>Тестовая версия</b>
+        <div id="devNoticeText">Расчёт работает локально. История включится после подключения Cloudflare Worker.</div>
+        <div id="devIdentity" class="status"></div>
+      </div>
     </section>
   </main>
   <script type="module" src="./app.js"></script>

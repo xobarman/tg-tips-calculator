@@ -8,17 +8,20 @@
 
 ## Development
 - `dev` branch is the isolated development branch.
-- Target architecture: one Cloudflare Worker serving the dev Mini App static assets plus `/api/*`, backed by D1. The current GitHub Pages production URL remains untouched.
-- Worker/D1 scaffold includes Telegram initData validation, allowlisted access, calculations history, and per-employee summaries.
+- Cloudflare dev architecture is live: one Worker serves the test Mini App static assets plus `/api/*`, backed by D1. The current GitHub Pages production URL remains untouched.
+- Dev Worker URL: `https://tg-tips-calculator-dev.xobarman.workers.dev`.
+- D1 database `tg-tips-calculator-dev` exists and migration `0001_init.sql` is applied.
+- Telegram bot token is configured in Cloudflare as a Worker secret via GitHub Actions; it is not committed to the repository.
+- GitHub Actions secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `TELEGRAM_BOT_TOKEN` are configured by the user.
+- Deployment workflow uploads only `index.html`, `app.js`, and `styles.css` as static assets. Repository internals are not part of the active static asset manifest.
+- The dev frontend automatically uses the same-origin Worker API when served from `workers.dev`.
+- Worker/D1 scaffold includes Telegram initData validation, fail-closed allowlisted access, calculation history, and per-employee summaries.
 - Employee selection supports: Александр, Александра, Анна, Арсик, Снежа; waiter 3 can be empty for a 2-person shift.
 - Money is stored as integer kopecks.
-- GitHub Actions tests on `dev` are passing.
-- Cloudflare Git-connect UI was abandoned because it loops back to GitHub App configuration.
-- GitHub Actions secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `TELEGRAM_BOT_TOKEN` have been added by the user.
-- `.github/workflows/deploy-dev.yml` bootstraps the dev D1 database if needed, applies migrations, deploys the Worker/static assets, and configures the Telegram bot token as a Cloudflare Worker secret.
+- Latest Cloudflare dev deployment and GitHub Actions deployment job are passing.
 
 ## Current blocker
-The first real Cloudflare dev deployment is being triggered now. Until it succeeds, the dev URL, D1 database, and API availability are not yet confirmed.
+`ALLOWED_TELEGRAM_USER_IDS` is intentionally empty, so history reads/writes remain fail-closed. We first need to open the dev URL as a real Telegram Mini App, read the authenticated Telegram user ID through `/api/whoami`, and then configure the allowlist.
 
 ## NEXT_ACTION
-Review the triggered `Deploy dev to Cloudflare` GitHub Actions run. If it succeeds, confirm the Worker URL and `/api/health`, then configure the Telegram allowlist before testing history writes.
+Create a separate Direct Link Mini App under the existing bot that points to `https://tg-tips-calculator-dev.xobarman.workers.dev`, while leaving the existing Main App URL unchanged. Open that dev Mini App in Telegram and use the displayed Telegram ID to configure the first allowlisted tester.

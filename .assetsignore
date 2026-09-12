@@ -1,0 +1,6 @@
+.github/
+worker/
+AGENTS.md
+PROJECT_STATE.md
+.gitignore
+.assetsignore

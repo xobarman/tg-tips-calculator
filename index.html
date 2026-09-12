@@ -31,13 +31,13 @@
       <section id="monthlyCard" class="card monthly-card" hidden>
         <div class="monthly-head">
           <div>
-            <div class="eyebrow">Счётчик месяца</div>
+            <div class="eyebrow">Остаток месяца</div>
             <div id="monthlyLabel" class="monthly-label">Текущий месяц</div>
           </div>
           <span class="live-dot" title="Считается по сохранённым записям"></span>
         </div>
         <div id="monthlyTotal" class="monthly-total">0,00 ₽</div>
-        <div id="monthlyCaption" class="monthly-caption">Всего распределено за месяц</div>
+        <div id="monthlyCaption" class="monthly-caption">К выплате после учёта выплат</div>
         <div id="monthlyPeople" class="monthly-people"></div>
       </section>
 
@@ -46,7 +46,10 @@
         <div class="field">
           <label for="businessDate">Дата</label>
           <input id="businessDate" type="date" />
+          <div class="hint">Сохраняется только текущий день по Москве. Один итоговый расчёт на сутки.</div>
         </div>
+
+        <div id="dayStatus" class="day-status status"></div>
 
         <div class="field total-field">
           <label for="total">Итог</label>
@@ -88,7 +91,7 @@
       </section>
 
       <section id="results" class="card results result-card">
-        <div class="section-title">К выплате</div>
+        <div class="section-title">Распределено за смену</div>
         <div id="resultLines"></div>
         <div class="details">
           <div><span>Общая часть после 8%</span><b id="commonNet">0 ₽</b></div>
@@ -128,8 +131,40 @@
 
       <section id="summaryCard" class="card summary-card" hidden>
         <div class="eyebrow">Итог периода</div>
-        <h2>К выплате</h2>
+        <h2>Осталось к выплате</h2>
         <div id="summaryLines"></div>
+      </section>
+
+      <section id="ownerPaymentCard" class="card owner-card" hidden>
+        <div class="owner-head">
+          <div>
+            <div class="eyebrow">Только владелец</div>
+            <h2>Записать выплату</h2>
+          </div>
+          <span class="owner-badge">ADMIN</span>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="paymentDate">Дата выплаты</label>
+            <input id="paymentDate" type="date" />
+          </div>
+          <div class="field">
+            <label for="paymentEmployee">Сотрудник</label>
+            <select id="paymentEmployee"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="paymentAmount">Выплачено</label>
+          <input id="paymentAmount" inputmode="decimal" autocomplete="off" placeholder="Например, 5000" />
+          <div class="hint">Дата определяет месяц, из которого выплата вычитается. Сумма не может быть больше остатка сотрудника за этот месяц.</div>
+        </div>
+        <button id="savePayment" class="compact-button">Записать выплату</button>
+        <div id="paymentStatus" class="status"></div>
+      </section>
+
+      <section id="paymentHistoryCard" class="card payment-history-card" hidden>
+        <div class="section-title">Выплаты за период</div>
+        <div id="paymentHistoryList"></div>
       </section>
 
       <section id="historyList"></section>

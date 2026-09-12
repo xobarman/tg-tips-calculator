@@ -1,0 +1,18 @@
+name = "tg-tips-calculator-api"
+main = "src/index.js"
+compatibility_date = "2026-09-12"
+
+[vars]
+# Comma-separated origins. Add the Cloudflare Pages dev preview and later production origin.
+ALLOWED_ORIGINS = "https://dev.YOUR-PAGES-PROJECT.pages.dev"
+# Comma-separated Telegram numeric user IDs. Data endpoints are fail-closed until this is configured.
+ALLOWED_TELEGRAM_USER_IDS = ""
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tg-tips-calculator-dev"
+database_id = "YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Never commit TELEGRAM_BOT_TOKEN here.
+# Configure it with: npx wrangler secret put TELEGRAM_BOT_TOKEN

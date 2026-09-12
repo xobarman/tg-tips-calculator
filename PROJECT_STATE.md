@@ -17,14 +17,15 @@
 - Deployment workflow uploads only `index.html`, `app.js`, and `styles.css` as static assets. Repository internals are not part of the active static asset manifest.
 - The dev frontend automatically uses the same-origin Worker API when served from `workers.dev`.
 - Worker/D1 scaffold includes Telegram initData validation, fail-closed allowlisted access, calculation history, and per-employee summaries.
-- The dev Mini App successfully authenticated the first tester through `/api/whoami` and displayed the tester's Telegram ID inside Telegram.
-- The deployment workflow reads `ALLOWED_TELEGRAM_USER_IDS` from GitHub Actions Secrets so tester IDs do not need to be committed to this public repository.
+- The dev Mini App successfully authenticated the first tester through `/api/whoami` inside Telegram.
+- The first tester allowlist is deployed and history access is enabled for that tester.
+- A real 2-person Telegram scenario has passed end-to-end: calculate -> save -> D1 persistence -> history read -> per-employee summary. The saved record and both 6,992.00 RUB employee totals were read back correctly for the test calculation.
 - Employee selection supports: Александр, Александра, Анна, Арсик, Снежа; waiter 3 can be empty for a 2-person shift.
 - Money is stored as integer kopecks.
-- Latest Cloudflare dev deployment and GitHub Actions deployment job were passing before the allowlist update.
+- Latest relevant GitHub Actions tests and Cloudflare dev deployment are passing.
 
 ## Current blocker
-The first tester allowlist secret has been added, but the updated value has not yet been deployed to the Cloudflare dev Worker.
+There is no infrastructure blocker. Before considering production cutover, the remaining functional gate is to verify one real 3-person calculation/save/history scenario inside Telegram because its common-pool split differs from the already-verified 2-person path.
 
 ## NEXT_ACTION
-Deploy `dev` with the new `ALLOWED_TELEGRAM_USER_IDS` secret, confirm GitHub Actions succeeds, then verify one real Telegram scenario end-to-end: calculate -> save -> history -> per-employee summary.
+Verify one 3-person Telegram scenario end-to-end in the dev Mini App: calculate -> save -> history, and confirm the three payouts match the expected formula.

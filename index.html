@@ -5,334 +5,114 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111827" />
   <title>Распределение чаевых</title>
-
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-  <style>
-    :root {
-      --bg: var(--tg-theme-bg-color, #0f172a);
-      --card: var(--tg-theme-secondary-bg-color, #111827);
-      --text: var(--tg-theme-text-color, #f8fafc);
-      --muted: var(--tg-theme-hint-color, #94a3b8);
-      --button: var(--tg-theme-button-color, #2563eb);
-      --button-text: var(--tg-theme-button-text-color, #ffffff);
-      --border: rgba(148, 163, 184, .22);
-      --danger: #ef4444;
-      --ok: #22c55e;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: var(--bg);
-      color: var(--text);
-      font: 16px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    .wrap {
-      width: min(100%, 560px);
-      margin: 0 auto;
-      padding: 20px 16px max(28px, env(safe-area-inset-bottom));
-    }
-
-    h1 {
-      margin: 6px 0 6px;
-      font-size: 28px;
-      line-height: 1.15;
-    }
-
-    .subtitle {
-      margin: 0 0 18px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 16px;
-      margin-bottom: 14px;
-    }
-
-    .field { margin-bottom: 14px; }
-    .field:last-child { margin-bottom: 0; }
-
-    label {
-      display: block;
-      margin-bottom: 7px;
-      font-size: 14px;
-      color: var(--muted);
-    }
-
-    input {
-      width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 13px 14px;
-      background: transparent;
-      color: var(--text);
-      font: inherit;
-      font-size: 20px;
-      outline: none;
-    }
-
-    input:focus {
-      border-color: var(--button);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--button) 20%, transparent);
-    }
-
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .actions {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-    button {
-      border: 0;
-      border-radius: 12px;
-      padding: 13px 16px;
-      background: var(--button);
-      color: var(--button-text);
-      font: inherit;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    button.secondary {
-      background: transparent;
-      color: var(--text);
-      border: 1px solid var(--border);
-      font-weight: 600;
-    }
-
-    .error {
-      display: none;
-      margin-top: 12px;
-      color: var(--danger);
-      font-size: 14px;
-    }
-
-    .results {
-      display: none;
-    }
-
-    .result-line {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: baseline;
-      padding: 13px 0;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .result-line:last-child { border-bottom: 0; }
-
-    .name { color: var(--muted); }
-    .amount {
-      font-size: 22px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .details {
-      margin-top: 10px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .details div { margin: 5px 0; }
-
-    .sum-check {
-      color: var(--ok);
-      font-weight: 700;
-    }
-
-    .formula {
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 12px;
-    }
-
-    @media (max-width: 420px) {
-      .row { grid-template-columns: 1fr; }
-      h1 { font-size: 24px; }
-    }
-  </style>
+  <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
-
 <body>
   <main class="wrap">
-    <h1>Распределение чаевых</h1>
-    <p class="subtitle">Комиссия 8% учитывается автоматически.</p>
+    <header>
+      <h1>Распределение чаевых</h1>
+      <p class="subtitle">Комиссия 8% учитывается автоматически.</p>
+    </header>
 
-    <section class="card">
-      <div class="field">
-        <label for="total">Итог</label>
-        <input id="total" inputmode="decimal" autocomplete="off" placeholder="Например, 15906" />
-      </div>
+    <nav class="tabs" aria-label="Разделы">
+      <button class="tab active" data-tab="calc">🧮 Расчёт</button>
+      <button class="tab" data-tab="history">📊 История</button>
+    </nav>
 
-      <div class="row">
+    <section id="calcTab">
+      <section class="card">
         <div class="field">
-          <label for="morning">Утро</label>
-          <input id="morning" inputmode="decimal" autocomplete="off" placeholder="0" />
+          <label for="businessDate">Дата</label>
+          <input id="businessDate" type="date" />
         </div>
 
         <div class="field">
-          <label for="evening">Вечер</label>
-          <input id="evening" inputmode="decimal" autocomplete="off" placeholder="0" />
+          <label for="total">Итог</label>
+          <input id="total" inputmode="decimal" autocomplete="off" placeholder="Например, 15906" />
         </div>
-      </div>
 
-      <div class="actions">
-        <button id="calc">Рассчитать</button>
-        <button id="reset" class="secondary" type="button">Сброс</button>
-      </div>
+        <div class="row">
+          <div class="field">
+            <label for="morning">Утро</label>
+            <input id="morning" inputmode="decimal" autocomplete="off" placeholder="0" />
+          </div>
+          <div class="field">
+            <label for="evening">Вечер</label>
+            <input id="evening" inputmode="decimal" autocomplete="off" placeholder="0" />
+          </div>
+        </div>
 
-      <div id="error" class="error"></div>
+        <div class="field">
+          <label for="employee1">Официант 1</label>
+          <select id="employee1"></select>
+        </div>
+        <div class="field">
+          <label for="employee2">Официант 2</label>
+          <select id="employee2"></select>
+        </div>
+        <div class="field">
+          <label for="employee3">Официант 3</label>
+          <select id="employee3"></select>
+          <div class="hint">Выбери «Нет третьего», если в смене только два официанта.</div>
+        </div>
+
+        <div class="actions">
+          <button id="calc">Рассчитать</button>
+          <button id="reset" class="secondary" type="button">Сброс</button>
+        </div>
+        <div id="error" class="error"></div>
+      </section>
+
+      <section id="results" class="card results">
+        <div id="resultLines"></div>
+        <div class="details">
+          <div>Общая часть после 8%: <b id="commonNet">0 ₽</b></div>
+          <div>Утро + вечер после 8%: <b id="shiftNet">0 ₽</b></div>
+          <div class="sum-check">Всего распределено: <span id="distributed">0 ₽</span></div>
+        </div>
+        <button id="save" class="save-button" type="button">💾 Сохранить расчёт</button>
+        <div id="saveStatus" class="status"></div>
+      </section>
     </section>
 
-    <section id="results" class="card results">
-      <div class="result-line">
-        <span class="name">Официант 1</span>
-        <span class="amount" id="w1">0 ₽</span>
-      </div>
-      <div class="result-line">
-        <span class="name">Официант 2</span>
-        <span class="amount" id="w2">0 ₽</span>
-      </div>
-      <div class="result-line">
-        <span class="name">Официант 3</span>
-        <span class="amount" id="w3">0 ₽</span>
-      </div>
+    <section id="historyTab" hidden>
+      <section class="card">
+        <div class="period-buttons">
+          <button class="secondary period" data-period="half">Текущая половина месяца</button>
+          <button class="secondary period" data-period="month">Весь месяц</button>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="fromDate">С</label>
+            <input id="fromDate" type="date" />
+          </div>
+          <div class="field">
+            <label for="toDate">По</label>
+            <input id="toDate" type="date" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="employeeFilter">Сотрудник</label>
+          <select id="employeeFilter"></select>
+        </div>
+        <button id="loadHistory">Показать</button>
+        <div id="historyStatus" class="status"></div>
+      </section>
 
-      <div class="details">
-        <div>Общая часть после 8%: <b id="commonNet">0 ₽</b></div>
-        <div>Доля общей части на одного: <b id="commonShare">0 ₽</b></div>
-        <div>Утро + вечер после 8%: <b id="shiftNet">0 ₽</b></div>
-        <div>Доплата официантам 1 и 2: <b id="shiftShare">0 ₽</b></div>
-        <div class="sum-check">Всего распределено: <span id="distributed">0 ₽</span></div>
-      </div>
+      <section id="summaryCard" class="card" hidden>
+        <h2>К выплате за период</h2>
+        <div id="summaryLines"></div>
+      </section>
 
-      <div class="formula">
-        Формула: ((Итог − Утро − Вечер) × 0,92) ÷ 3; 
-        ((Утро + Вечер) × 0,92) ÷ 2.
-      </div>
+      <section id="historyList"></section>
+    </section>
+
+    <section id="devNotice" class="card dev-notice" hidden>
+      <b>Режим разработки</b>
+      <div>Расчёт работает локально. История включится после подключения Cloudflare Worker.</div>
     </section>
   </main>
-
-  <script>
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-    }
-
-    const $ = (id) => document.getElementById(id);
-
-    function parseMoney(value) {
-      const normalized = String(value)
-        .trim()
-        .replace(/\s+/g, '')
-        .replace(',', '.');
-
-      if (normalized === '') return 0;
-      const number = Number(normalized);
-      return Number.isFinite(number) ? number : NaN;
-    }
-
-    function money(value) {
-      return new Intl.NumberFormat('ru-RU', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }).format(value) + ' ₽';
-    }
-
-    function showError(message) {
-      $('error').textContent = message;
-      $('error').style.display = 'block';
-      $('results').style.display = 'none';
-    }
-
-    function clearError() {
-      $('error').textContent = '';
-      $('error').style.display = 'none';
-    }
-
-    function calculate() {
-      clearError();
-
-      const total = parseMoney($('total').value);
-      const morning = parseMoney($('morning').value);
-      const evening = parseMoney($('evening').value);
-
-      if ([total, morning, evening].some(Number.isNaN)) {
-        return showError('Проверь числа: можно вводить через точку или запятую.');
-      }
-      if (total < 0 || morning < 0 || evening < 0) {
-        return showError('Суммы не могут быть отрицательными.');
-      }
-      if (morning + evening > total) {
-        return showError('Утро + вечер не могут быть больше итога.');
-      }
-
-      const commonGross = total - morning - evening;
-      const commonNet = commonGross * 0.92;
-      const commonShare = commonNet / 3;
-
-      const shiftGross = morning + evening;
-      const shiftNet = shiftGross * 0.92;
-      const shiftShare = shiftNet / 2;
-
-      const waiter1 = commonShare + shiftShare;
-      const waiter2 = commonShare + shiftShare;
-      const waiter3 = commonShare;
-
-      $('w1').textContent = money(waiter1);
-      $('w2').textContent = money(waiter2);
-      $('w3').textContent = money(waiter3);
-
-      $('commonNet').textContent = money(commonNet);
-      $('commonShare').textContent = money(commonShare);
-      $('shiftNet').textContent = money(shiftNet);
-      $('shiftShare').textContent = money(shiftShare);
-      $('distributed').textContent = money(waiter1 + waiter2 + waiter3);
-
-      $('results').style.display = 'block';
-
-      if (tg?.HapticFeedback) {
-        tg.HapticFeedback.notificationOccurred('success');
-      }
-    }
-
-    function reset() {
-      $('total').value = '';
-      $('morning').value = '';
-      $('evening').value = '';
-      $('results').style.display = 'none';
-      clearError();
-      $('total').focus();
-    }
-
-    $('calc').addEventListener('click', calculate);
-    $('reset').addEventListener('click', reset);
-
-    ['total', 'morning', 'evening'].forEach(id => {
-      $(id).addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') calculate();
-      });
-    });
-  </script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

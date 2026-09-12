@@ -23,10 +23,13 @@
 - A real 3-person Telegram scenario also passed end-to-end. Control input `1500 / 300 / 300` produced `552 / 552 / 276` RUB, saved successfully, and the same three payouts were read back from history. The cumulative per-employee summary updated accordingly.
 - Employee selection supports: Александр, Александра, Анна, Арсик, Снежа; waiter 3 can be empty for a 2-person shift.
 - Money is stored as integer kopecks.
-- Latest relevant GitHub Actions tests and Cloudflare dev deployment are passing.
+- The dev UI has received a bounded visual polish pass: clearer hierarchy, cleaner cards/buttons/fields, more compact DEV notice, and improved result/history presentation.
+- A monthly tips counter is now shown from saved D1 records for the current calendar month. It is derived from the current month date range rather than destructively reset: on the first day of a new month it naturally starts at zero while prior-month records remain intact in D1/history.
+- History now includes a quick `Прошлый месяц` period shortcut, so the prior month's archived totals can be reopened without changing stored data.
+- Latest worker tests and Cloudflare dev deployment for these changes are passing.
 
 ## Current blocker
-There is no known functional or infrastructure blocker for the tested MVP flow. Production cutover has not been authorized and `main` remains unchanged.
+There is no infrastructure blocker. The new UI/monthly-counter change is deployed to dev but has not yet been manually checked inside Telegram after deployment. Production cutover is still not authorized and `main` remains unchanged.
 
 ## NEXT_ACTION
-Perform a bounded production-readiness review of `dev` against the current live `main` (code diff, CI, secrets/config expectations, and rollback/cutover steps) without modifying `main`. Then present one explicit cutover decision to the user for manual approval.
+Open the Telegram dev Mini App and manually verify the polished UI, the current-month counter total/breakdown, and the `Прошлый месяц` history shortcut. If that passes, resume the bounded production-readiness review before any production cutover decision.

@@ -57,6 +57,15 @@ jobs:
         working-directory: worker
         run: npm install --no-audit --no-fund
 
+      - name: Prepare static assets
+        if: steps.secrets.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-dev
+          mkdir dist-dev
+          cp index.html app.js styles.css dist-dev/
+
       - name: Create D1 if needed and build CI config
         if: steps.secrets.outputs.ready == 'true'
         working-directory: worker
@@ -95,7 +104,7 @@ jobs:
           ALLOWED_TELEGRAM_USER_IDS = ""
 
           [assets]
-          directory = ".."
+          directory = "../dist-dev"
           run_worker_first = ["/api/*"]
 
           [[d1_databases]]

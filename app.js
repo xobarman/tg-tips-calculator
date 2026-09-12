@@ -5,7 +5,9 @@ const $ = id => document.getElementById(id);
 
 const query = new URLSearchParams(location.search);
 if (query.get('api')) localStorage.setItem('tipsApiBase', query.get('api').replace(/\/$/, ''));
-const API_BASE = localStorage.getItem('tipsApiBase') || '';
+const storedApiBase = localStorage.getItem('tipsApiBase') || '';
+const cloudflareSameOriginApi = location.hostname.endsWith('.workers.dev') ? location.origin : '';
+const API_BASE = storedApiBase || cloudflareSameOriginApi;
 let lastCalculation = null;
 
 function moneyKopecks(value) {
@@ -132,6 +134,23 @@ async function loadHistory() {
   } catch (e) { setStatus($('historyStatus'), e.message, 'bad'); }
 }
 
+async function showDevIdentity() {
+  if (!location.hostname.endsWith('.workers.dev')) return;
+  $('devNotice').hidden = false;
+  $('devNoticeText').textContent = 'Изолированная тестовая версия Cloudflare. Рабочий бот и main не затронуты.';
+  if (!tg?.initData) {
+    $('devIdentity').textContent = 'Для проверки истории эту версию нужно открыть как Telegram Mini App.';
+    return;
+  }
+  try {
+    const user = await api('/api/whoami');
+    const label = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'Telegram пользователь';
+    $('devIdentity').textContent = `${label} · Telegram ID: ${user.id}`;
+  } catch (e) {
+    $('devIdentity').textContent = e.message;
+  }
+}
+
 function openTab(name) {
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   $('calcTab').hidden = name !== 'calc'; $('historyTab').hidden = name !== 'history';
@@ -146,3 +165,4 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
 document.querySelectorAll('.period').forEach(b => b.addEventListener('click', () => setPeriod(b.dataset.period)));
 ['total', 'morning', 'evening'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') calculate(); }));
 if (!API_BASE) $('devNotice').hidden = false;
+showDevIdentity();

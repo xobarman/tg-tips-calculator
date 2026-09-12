@@ -4,17 +4,21 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#111827" />
-  <title>Распределение чаевых</title>
+  <title>Чаевые | Encore Café City</title>
   <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <main class="wrap">
     <header class="app-header">
-      <div>
-        <div class="eyebrow">Энкор Сити · Чаевые</div>
+      <div class="header-copy">
+        <div class="eyebrow">Encore Café City · Чаевые</div>
         <h1>Распределение чаевых</h1>
         <p class="subtitle">Считаем смену, сохраняем историю и выплаты.</p>
+        <div class="developer-mark" aria-label="Разработано Novikov Development">
+          <span class="developer-mark__label">by</span>
+          <strong>Novikov Development</strong>
+        </div>
       </div>
       <div class="commission-badge" aria-label="Комиссия 8 процентов">
         <span>−8%</span>
@@ -23,8 +27,19 @@
     </header>
 
     <nav class="tabs" aria-label="Разделы">
-      <button class="tab active" data-tab="calc">🧮 Расчёт</button>
-      <button class="tab" data-tab="history">📊 История</button>
+      <button class="tab active" data-tab="calc">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4" y="3" width="16" height="18" rx="3"></rect>
+          <path d="M8 7h8M8 11h2M14 11h2M8 15h2M14 15h2M8 18h2M14 18h2"></path>
+        </svg>
+        <span>Расчёт</span>
+      </button>
+      <button class="tab" data-tab="history">
+        <svg class="tab-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path>
+        </svg>
+        <span>История</span>
+      </button>
     </nav>
 
     <section id="calcTab">
@@ -98,7 +113,7 @@
           <div><span>Утро + вечер после 8%</span><b id="shiftNet">0 ₽</b></div>
           <div class="sum-check"><span>Всего распределено</span><strong id="distributed">0 ₽</strong></div>
         </div>
-        <button id="save" class="save-button" type="button">💾 Сохранить расчёт</button>
+        <button id="save" class="save-button" type="button">Сохранить расчёт</button>
         <div id="saveStatus" class="status"></div>
       </section>
     </section>

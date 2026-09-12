@@ -132,24 +132,38 @@ async function authenticate(request, env, { requireAllowlist = true } = {}) {
 
 async function activeCalculationForDate(env, businessDate) {
   return env.DB.prepare(`SELECT id, business_date, total_kopecks, morning_kopecks, evening_kopecks,
-      participant_count, created_by_telegram_id, created_by_name, created_at
+      participant_count, created_by_telegram_id, created_by_name, created_at, day_submitter_telegram_id
     FROM calculations
     WHERE business_date = ? AND is_active = 1
     LIMIT 1`).bind(businessDate).first();
 }
 
+function replacementAccess(existing, businessDate, user, env) {
+  const owner = isOwner(user, env);
+  if (!existing) return { owner, daySubmitter: false, canReplace: false };
+  const submitterId = String(existing.day_submitter_telegram_id || existing.created_by_telegram_id || '');
+  const daySubmitter = submitterId === String(user.id);
+  const sameBusinessDay = businessDate === businessDateNow();
+  return {
+    owner,
+    daySubmitter,
+    canReplace: owner || (daySubmitter && sameBusinessDay),
+  };
+}
+
 async function dayStatus(url, env, user) {
   const businessDate = parseDate(url.searchParams.get('date'));
   const existing = await activeCalculationForDate(env, businessDate);
-  const owner = isOwner(user, env);
   const today = businessDateNow();
+  const access = replacementAccess(existing, businessDate, user, env);
   return {
     businessDate,
     currentBusinessDate: today,
     hasCalculation: Boolean(existing),
     canSave: !existing && businessDate === today,
-    canReplace: Boolean(existing) && owner && businessDate === today,
-    isOwner: owner,
+    canReplace: access.canReplace,
+    isOwner: access.owner,
+    isDaySubmitter: access.daySubmitter,
     calculation: existing ? {
       id: existing.id,
       totalKopecks: Number(existing.total_kopecks),
@@ -165,9 +179,7 @@ async function dayStatus(url, env, user) {
 async function saveCalculation(request, env, user) {
   const body = await request.json();
   const businessDate = parseDate(body.businessDate);
-  if (businessDate !== businessDateNow()) {
-    throw new ApiError(400, 'Сохранять можно только расчёт за текущий день по Москве.');
-  }
+  const today = businessDateNow();
 
   const totalKopecks = parseKopecks(body.totalKopecks, 'Итог');
   const morningKopecks = parseKopecks(body.morningKopecks, 'Утро');
@@ -176,15 +188,32 @@ async function saveCalculation(request, env, user) {
   const replace = body.replace === true;
   const existing = await activeCalculationForDate(env, businessDate);
 
-  if (existing && !replace) {
-    throw new ApiError(409, 'Расчёт за сегодня уже сохранён. Повторное сохранение недоступно.');
+  if (!existing && businessDate !== today) {
+    throw new ApiError(400, 'Новый расчёт можно сохранять только за текущий день по Москве.');
   }
-  if (existing && replace) ensureOwner(user, env);
-  if (!existing && replace) throw new ApiError(409, 'Сохранённого расчёта за сегодня уже нет. Обнови приложение.');
+  if (existing && !replace) {
+    throw new ApiError(409, 'Расчёт за этот день уже сохранён. Используй исправление, если у тебя есть право на него.');
+  }
+  if (!existing && replace) {
+    throw new ApiError(409, 'Сохранённого расчёта за этот день уже нет. Обнови приложение.');
+  }
+
+  if (existing && replace) {
+    const access = replacementAccess(existing, businessDate, user, env);
+    if (!access.canReplace) {
+      if (businessDate !== today) {
+        throw new ApiError(403, 'После 00:00 исправлять прошлые дни может только владелец.');
+      }
+      throw new ApiError(403, 'До 00:00 исправить расчёт может только сотрудник, который сохранил его первым, или владелец.');
+    }
+  }
 
   const result = calculateDistribution({ totalKopecks, morningKopecks, eveningKopecks, employees });
   const id = crypto.randomUUID();
   const displayName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || String(user.id);
+  const daySubmitterId = existing
+    ? String(existing.day_submitter_telegram_id || existing.created_by_telegram_id || user.id)
+    : String(user.id);
 
   const statements = [];
   if (existing) {
@@ -194,9 +223,11 @@ async function saveCalculation(request, env, user) {
   }
 
   statements.push(env.DB.prepare(`INSERT INTO calculations
-    (id, business_date, total_kopecks, morning_kopecks, evening_kopecks, fee_percent, participant_count, created_by_telegram_id, created_by_name, is_active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`)
-    .bind(id, businessDate, totalKopecks, morningKopecks, eveningKopecks, FEE_PERCENT, result.participantCount, String(user.id), displayName));
+    (id, business_date, total_kopecks, morning_kopecks, evening_kopecks, fee_percent, participant_count,
+     created_by_telegram_id, created_by_name, is_active, day_submitter_telegram_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`)
+    .bind(id, businessDate, totalKopecks, morningKopecks, eveningKopecks, FEE_PERCENT, result.participantCount,
+      String(user.id), displayName, daySubmitterId));
 
   statements.push(...result.payouts.map(p => env.DB.prepare(`INSERT INTO payouts
     (calculation_id, employee_name, position, amount_kopecks) VALUES (?, ?, ?, ?)`)
@@ -207,7 +238,7 @@ async function saveCalculation(request, env, user) {
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     if (/UNIQUE|idx_calculations_one_active_day/i.test(message)) {
-      throw new ApiError(409, 'Расчёт за сегодня уже успел сохранить другой сотрудник.');
+      throw new ApiError(409, 'Расчёт за этот день уже успел изменить другой сотрудник. Обнови приложение.');
     }
     throw error;
   }

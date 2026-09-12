@@ -35,9 +35,10 @@
 - The owner can select past dates in the calculation form for correcting an existing historical calculation; staff remain locked to the current Moscow date.
 - CI syntax-checks both Worker and Mini App scripts and runs calculation tests.
 - Latest GitHub Actions tests pass, Cloudflare dev deployment passes, migration `0003` is applied, and the owner secret configuration step completed successfully.
+- Manual Telegram verification confirms the owner identity is active (`владелец` shown in DEV), the owner can save an исправление for today's locked calculation, and the corrected result replaces the active totals while the app remains in DEV.
 
 ## Current blocker
-No infrastructure blocker. The new correction-permission rules still need one manual Telegram verification: original submitter can replace the same day's calculation before 00:00; a different staff member cannot; owner can replace a past saved day; payout subtraction still remains correct afterward.
+No infrastructure blocker. Remaining role checks require at least one additional staff Telegram ID in `ALLOWED_TELEGRAM_USER_IDS`: verify that the original submitter can replace the same day's calculation before 00:00 while a different staff member cannot. The owner payout flow also still needs one manual check that a recorded payout reduces the employee's outstanding monthly balance correctly.
 
 ## NEXT_ACTION
-Manually verify the updated DEV role behavior inside Telegram. First confirm the owner identity is active and that the current day's saved calculation offers `Сохранить исправление`. Then add at least one additional staff Telegram ID to `ALLOWED_TELEGRAM_USER_IDS` and verify the original-submitter-vs-other-staff lock before production-readiness review.
+Add one additional staff Telegram ID to `ALLOWED_TELEGRAM_USER_IDS`, redeploy DEV, and manually verify original-submitter-vs-other-staff correction permissions. After that, record one small owner-only payout and confirm the monthly outstanding balance is reduced by exactly that amount.

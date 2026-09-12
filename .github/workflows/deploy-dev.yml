@@ -29,6 +29,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       ALLOWED_TELEGRAM_USER_IDS: ${{ secrets.ALLOWED_TELEGRAM_USER_IDS }}
+      OWNER_TELEGRAM_USER_ID: ${{ secrets.OWNER_TELEGRAM_USER_ID }}
       DB_NAME: tg-tips-calculator-dev
       WORKER_NAME: tg-tips-calculator-dev
 
@@ -130,3 +131,14 @@ jobs:
         working-directory: worker
         shell: bash
         run: printf '%s' "$TELEGRAM_BOT_TOKEN" | npx wrangler secret put TELEGRAM_BOT_TOKEN --config wrangler.ci.toml
+
+      - name: Configure owner Telegram ID secret
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: worker
+        shell: bash
+        run: |
+          if [[ -n "$OWNER_TELEGRAM_USER_ID" ]]; then
+            printf '%s' "$OWNER_TELEGRAM_USER_ID" | npx wrangler secret put OWNER_TELEGRAM_USER_ID --config wrangler.ci.toml
+          else
+            echo "OWNER_TELEGRAM_USER_ID is not configured yet; owner-only actions stay fail-closed."
+          fi

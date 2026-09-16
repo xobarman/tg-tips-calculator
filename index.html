@@ -7,6 +7,12 @@
   <title>Чаевые | Encore Café City</title>
   <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
   <link rel="stylesheet" href="./styles.css" />
+  <style>
+    .identity-card { box-shadow: none; padding: 14px 16px; }
+    .identity-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+    .identity-value { font-size: 18px; font-weight: 900; letter-spacing: .01em; overflow-wrap: anywhere; }
+    .identity-copy { min-height: 40px; padding: 9px 13px; white-space: nowrap; }
+  </style>
 </head>
 <body>
   <main class="wrap">
@@ -185,6 +191,18 @@
       <section id="historyList"></section>
     </section>
 
+    <section id="telegramIdentityCard" class="card identity-card" hidden>
+      <div class="eyebrow">Доступ сотрудника</div>
+      <div class="identity-row">
+        <div>
+          <div class="hint" style="margin:0">Ваш Telegram ID</div>
+          <div id="telegramIdentityValue" class="identity-value">—</div>
+        </div>
+        <button id="copyTelegramId" class="secondary identity-copy" type="button">Копировать</button>
+      </div>
+      <div id="telegramIdentityHint" class="hint">Если доступ ещё не выдан — пришлите этот ID Александру.</div>
+    </section>
+
     <section id="devNotice" class="card dev-notice" hidden>
       <div class="dev-badge">DEV</div>
       <div>
@@ -195,5 +213,36 @@
     </section>
   </main>
   <script type="module" src="./app.js"></script>
+  <script>
+    (async () => {
+      const card = document.getElementById('telegramIdentityCard');
+      const value = document.getElementById('telegramIdentityValue');
+      const copy = document.getElementById('copyTelegramId');
+      const tg = window.Telegram?.WebApp;
+      if (!card || !value || !tg?.initData || location.hostname !== 'tg-tips-calculator.xobarman.workers.dev') return;
+
+      try {
+        const response = await fetch('/api/whoami', {
+          headers: { 'X-Telegram-Init-Data': tg.initData },
+        });
+        if (!response.ok) return;
+        const user = await response.json();
+        value.textContent = String(user.id || '—');
+        card.hidden = false;
+
+        copy?.addEventListener('click', async () => {
+          const id = String(user.id || '');
+          if (!id) return;
+          try {
+            await navigator.clipboard.writeText(id);
+            copy.textContent = 'Скопировано';
+            setTimeout(() => { copy.textContent = 'Копировать'; }, 1400);
+          } catch {
+            window.prompt('Скопируйте Telegram ID', id);
+          }
+        });
+      } catch {}
+    })();
+  </script>
 </body>
 </html>

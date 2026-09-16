@@ -7,6 +7,7 @@ on:
     paths:
       - 'index.html'
       - 'app.js'
+      - 'audit-ui.js'
       - 'styles.css'
       - '.assetsignore'
       - 'worker/**'
@@ -66,7 +67,7 @@ jobs:
           set -euo pipefail
           rm -rf dist-dev
           mkdir dist-dev
-          cp index.html app.js styles.css dist-dev/
+          cp index.html app.js audit-ui.js styles.css dist-dev/
 
       - name: Create D1 if needed and build CI config
         if: steps.secrets.outputs.ready == 'true'

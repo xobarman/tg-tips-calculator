@@ -1,0 +1,174 @@
+name: Deploy production to Cloudflare
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/**'
+    paths:
+      - 'index.html'
+      - 'app.js'
+      - 'styles.css'
+      - '.assetsignore'
+      - 'worker/**'
+      - '.github/workflows/deploy-prod.yml'
+      - 'PROJECT_STATE.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      ALLOWED_TELEGRAM_USER_IDS: ${{ secrets.ALLOWED_TELEGRAM_USER_IDS }}
+      OWNER_TELEGRAM_USER_ID: ${{ secrets.OWNER_TELEGRAM_USER_ID }}
+      DB_NAME: tg-tips-calculator-prod-20260916
+      WORKER_NAME: tg-tips-calculator
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check deployment secrets
+        id: secrets
+        shell: bash
+        run: |
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" || -z "$TELEGRAM_BOT_TOKEN" || -z "$ALLOWED_TELEGRAM_USER_IDS" || -z "$OWNER_TELEGRAM_USER_ID" ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Production deployment requires all Cloudflare, Telegram, allowlist, and owner secrets."
+            exit 1
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: worker/package.json
+
+      - name: Install Wrangler
+        working-directory: worker
+        run: npm install --no-audit --no-fund
+
+      - name: Prepare production static assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf dist-prod
+          mkdir dist-prod
+          cp index.html app.js styles.css dist-prod/
+          # DEV identity card is useful only on the isolated test Worker.
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('dist-prod/app.js')
+          s = p.read_text(encoding='utf-8')
+          old = "async function showDevIdentity() {\n  if (!location.hostname.endsWith('.workers.dev')) return;"
+          new = "async function showDevIdentity() {\n  return;"
+          if old not in s:
+              raise SystemExit('Could not locate DEV notice guard in app.js')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+
+      - name: Create clean production D1 if needed and build config
+        working-directory: worker
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          get_db_id() {
+            npx wrangler d1 list --json > /tmp/d1.json
+            DB_NAME="$DB_NAME" node <<'NODE'
+          const fs = require('fs');
+          const raw = JSON.parse(fs.readFileSync('/tmp/d1.json', 'utf8'));
+          const list = Array.isArray(raw) ? raw : (raw.result || raw.databases || []);
+          const db = list.find(item => item.name === process.env.DB_NAME);
+          process.stdout.write(db ? String(db.uuid || db.id || db.database_id || '') : '');
+          NODE
+          }
+
+          DB_ID="$(get_db_id)"
+          if [[ -z "$DB_ID" ]]; then
+            npx wrangler d1 create "$DB_NAME"
+            DB_ID="$(get_db_id)"
+          fi
+          if [[ -z "$DB_ID" ]]; then
+            echo "Could not resolve production D1 database ID for $DB_NAME" >&2
+            exit 1
+          fi
+
+          cat > wrangler.prod.toml <<EOF
+          name = "$WORKER_NAME"
+          main = "src/index.js"
+          compatibility_date = "2026-09-16"
+
+          [vars]
+          ALLOWED_ORIGINS = ""
+          ALLOWED_TELEGRAM_USER_IDS = "$ALLOWED_TELEGRAM_USER_IDS"
+
+          [assets]
+          directory = "../dist-prod"
+          run_worker_first = ["/api/*"]
+
+          [[d1_databases]]
+          binding = "DB"
+          database_name = "$DB_NAME"
+          database_id = "$DB_ID"
+          migrations_dir = "migrations"
+          EOF
+
+      - name: Apply production D1 migrations
+        working-directory: worker
+        run: npx wrangler d1 migrations apply DB --remote --config wrangler.prod.toml
+
+      - name: Verify fresh production ledger is empty
+        working-directory: worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler d1 execute DB --remote --config wrangler.prod.toml --json --command "SELECT (SELECT COUNT(*) FROM calculations) AS calculations, (SELECT COUNT(*) FROM payments) AS payments;" > /tmp/prod-counts.json
+          cat /tmp/prod-counts.json
+          node <<'NODE'
+          const fs = require('fs');
+          const raw = JSON.parse(fs.readFileSync('/tmp/prod-counts.json', 'utf8'));
+          const batches = Array.isArray(raw) ? raw : [raw];
+          const rows = batches.flatMap(x => x.results || x.result || []);
+          const row = rows[0] || {};
+          if (Number(row.calculations || 0) !== 0 || Number(row.payments || 0) !== 0) {
+            console.error('Production database is not empty; refusing release deploy.');
+            process.exit(1);
+          }
+          NODE
+
+      - name: Deploy production Worker and static assets
+        working-directory: worker
+        run: npx wrangler deploy --config wrangler.prod.toml
+
+      - name: Configure Telegram bot token secret
+        working-directory: worker
+        shell: bash
+        run: printf '%s' "$TELEGRAM_BOT_TOKEN" | npx wrangler secret put TELEGRAM_BOT_TOKEN --config wrangler.prod.toml
+
+      - name: Configure owner Telegram ID secret
+        working-directory: worker
+        shell: bash
+        run: printf '%s' "$OWNER_TELEGRAM_USER_ID" | npx wrangler secret put OWNER_TELEGRAM_USER_ID --config wrangler.prod.toml
+
+      - name: Smoke test production health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            if curl -fsS "https://tg-tips-calculator.xobarman.workers.dev/api/health"; then
+              exit 0
+            fi
+            sleep 3
+          done
+          exit 1

@@ -1,4 +1,5 @@
 import { EMPLOYEES, FEE_PERCENT, calculateDistribution } from './calc.js';
+import { auditHistory } from './audit-history.js';
 
 const encoder = new TextEncoder();
 const BUSINESS_TIME_ZONE = 'Europe/Moscow';
@@ -392,6 +393,7 @@ export default {
       if (url.pathname === '/api/day-status' && request.method === 'GET') return json(await dayStatus(url, env, user), 200, cors);
       if (url.pathname === '/api/calculations' && request.method === 'POST') return json(await saveCalculation(request, env, user), 201, cors);
       if (url.pathname === '/api/history' && request.method === 'GET') return json({ items: await history(url, env) }, 200, cors);
+      if (url.pathname === '/api/audit-history' && request.method === 'GET') return json({ items: await auditHistory(url, env) }, 200, cors);
       if (url.pathname === '/api/summary' && request.method === 'GET') return json({ items: await summary(url, env) }, 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'GET') return json({ items: await payments(url, env) }, 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'POST') return json(await savePayment(request, env, user), 201, cors);

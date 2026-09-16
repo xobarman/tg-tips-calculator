@@ -105,6 +105,11 @@ jobs:
             exit 1
           fi
 
+          EFFECTIVE_ALLOWED_TELEGRAM_USER_IDS="$ALLOWED_TELEGRAM_USER_IDS"
+          if [[ -n "$OWNER_TELEGRAM_USER_ID" ]]; then
+            EFFECTIVE_ALLOWED_TELEGRAM_USER_IDS="${EFFECTIVE_ALLOWED_TELEGRAM_USER_IDS},${OWNER_TELEGRAM_USER_ID}"
+          fi
+
           cat > wrangler.prod.toml <<EOF
           name = "$WORKER_NAME"
           main = "src/index.js"
@@ -112,7 +117,7 @@ jobs:
 
           [vars]
           ALLOWED_ORIGINS = ""
-          ALLOWED_TELEGRAM_USER_IDS = "$ALLOWED_TELEGRAM_USER_IDS"
+          ALLOWED_TELEGRAM_USER_IDS = "$EFFECTIVE_ALLOWED_TELEGRAM_USER_IDS"
 
           [assets]
           directory = "../dist-prod"

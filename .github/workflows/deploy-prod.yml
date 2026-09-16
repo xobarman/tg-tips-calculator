@@ -8,6 +8,7 @@ on:
     paths:
       - 'index.html'
       - 'app.js'
+      - 'audit-ui.js'
       - 'styles.css'
       - '.assetsignore'
       - 'worker/**'
@@ -64,7 +65,7 @@ jobs:
           set -euo pipefail
           rm -rf dist-prod
           mkdir dist-prod
-          cp index.html app.js styles.css dist-prod/
+          cp index.html app.js audit-ui.js styles.css dist-prod/
           # DEV identity card is useful only on the isolated test Worker.
           python - <<'PY'
           from pathlib import Path

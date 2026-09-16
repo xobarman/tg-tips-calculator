@@ -3,7 +3,9 @@ name: Tests
 on:
   push:
     branches:
+      - main
       - dev
+      - 'release/**'
       - 'feature/**'
   pull_request:
     branches:

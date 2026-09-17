@@ -4,9 +4,8 @@
 - Repository: `xobarman/tg-tips-calculator`.
 - Live Telegram Mini App uses Cloudflare Worker production: `https://tg-tips-calculator.xobarman.workers.dev`.
 - Telegram Menu Button and Main App point to the Cloudflare production URL.
-- Production D1 is separate from DEV and must never receive DEV/test data.
-- Production is currently on `main` commit `631927a5a4f50f4d4db0b6d39e52dc7c25830395`.
-- Production already includes the verified audit-history release.
+- Production D1 is separate from DEV and must remain isolated from DEV/test data.
+- Current production before the staff-access promotion is `main` at `631927a`.
 
 ## Production functionality
 - Branding: `Encore Café City · Чаевые`, developer mark `by Novikov Development`.
@@ -14,9 +13,8 @@
 - Money is stored and calculated as integer kopecks; server-side code recalculates distributions.
 - Commission is 8%.
 - Telegram `initData` is validated server-side.
-- Current production staff access still uses the existing Telegram user-ID allowlist mechanism.
-- Production UI exposes the current Telegram ID for onboarding without requiring bot commands.
 - Month balance is `distributed - paid`; new calendar months start at zero while old history remains stored.
+- Daily lock, correction, audit history, and owner-only payouts are live in production.
 
 ## Daily lock / correction / payout rules
 - There is at most one active saved calculation per Moscow business date.
@@ -28,21 +26,21 @@
 - Only the configured owner may record payouts.
 - Payment history stores who recorded each payout.
 
-## Verified DEV release candidate: D1 staff access
-- `dev` deploys to `https://tg-tips-calculator-dev.xobarman.workers.dev` and uses the isolated `tg-tips-calculator-dev` D1 database.
-- A private Telegram Beta Direct Link points to the DEV Worker.
-- The D1 staff-access implementation is present on `dev`.
-- Migration `worker/migrations/0004_staff_access.sql` creates the `staff_access` table.
-- `OWNER_TELEGRAM_USER_ID` remains a secret and owner access is handled separately.
-- Staff access is keyed by Telegram ID, not username or display name.
-- Owner-only UI supports assigning an employee name, adding/updating access, and disabling access without deleting the historical record.
-- Legacy `ALLOWED_TELEGRAM_USER_IDS` remains only as a temporary fallback for IDs that do not yet have a D1 row, allowing a safe migration.
-- A D1 row takes precedence over the legacy allowlist for that Telegram ID.
-- `staff-access-ui.js` is included in the DEV static deployment after the packaging fix in commit `4c6452b22a1cbc0755eb8c165a89a24cc6a78a0d`.
-- On 2026-09-17 the owner manually verified the Beta UI in Telegram and confirmed that adding/updating employee access through D1 works.
+## Staff access release candidate
+- `dev` deploys to `https://tg-tips-calculator-dev.xobarman.workers.dev` and uses isolated `tg-tips-calculator-dev` D1.
+- Staff access is now managed through D1 table `staff_access` instead of relying on a single mutable GitHub Secret as the primary source of truth.
+- `OWNER_TELEGRAM_USER_ID` remains a separate secret and owner access remains fail-closed.
+- Owner-only UI `Доступ сотрудников` supports Telegram ID + employee name, add/update, and deactivate without deleting history.
+- Telegram ID is the access key; username/display name are not used for authorization.
+- Existing legacy allowlist remains as a temporary fallback for IDs that do not yet have a D1 row, allowing a safe staged migration.
+- Once an ID has a D1 row, that row takes precedence and its active/inactive state controls access.
+- Staff-access Beta was manually verified in Telegram by the owner on 2026-09-17: the owner card rendered correctly and adding/updating an employee through D1 worked.
+- DEV deployment packaging was fixed to include `staff-access-ui.js`.
+- Production deployment packaging was also fixed to include `staff-access-ui.js` before promotion.
+- Production must reuse existing D1 `tg-tips-calculator-prod-20260916`; DEV data must never be imported.
 
 ## Current blocker
-Production promotion of D1 staff access is waiting for explicit owner approval. `main` must not be changed without that approval.
+None. The owner explicitly approved production promotion of the verified D1 staff-access release on 2026-09-17.
 
 ## NEXT_ACTION
-Get explicit owner approval to promote the verified D1 staff-access release candidate from `dev` to `main`/production.
+Fast-forward `main` to verified `dev`, let GitHub Actions apply `0004_staff_access.sql` to the existing production D1 and deploy the production Worker/static assets, verify CI and production health, then manually confirm `Доступ сотрудников` in the live Telegram Mini App before migrating remaining legacy staff IDs.

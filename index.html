@@ -12,6 +12,15 @@
     .identity-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
     .identity-value { font-size: 18px; font-weight: 900; letter-spacing: .01em; overflow-wrap: anywhere; }
     .identity-copy { min-height: 40px; padding: 9px 13px; white-space: nowrap; }
+    .staff-access-list { display: grid; gap: 10px; margin-top: 14px; }
+    .staff-access-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid rgba(148, 163, 184, .18); }
+    .staff-access-item:first-child { border-top: 0; }
+    .staff-access-item__main { min-width: 0; }
+    .staff-access-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    .staff-access-badge { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+    .staff-access-badge.is-active { background: rgba(34, 197, 94, .14); color: #86efac; }
+    .staff-access-badge.is-off { background: rgba(239, 68, 68, .14); color: #fca5a5; }
+    .staff-access-action { min-height: 38px; padding: 8px 12px; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -183,6 +192,28 @@
         <div id="paymentStatus" class="status"></div>
       </section>
 
+      <section id="staffAccessCard" class="card owner-card" hidden>
+        <div class="owner-head">
+          <div>
+            <div class="eyebrow">Только владелец</div>
+            <h2>Доступ сотрудников</h2>
+          </div>
+          <span class="owner-badge">ADMIN</span>
+        </div>
+        <div class="field">
+          <label for="staffAccessTelegramId">Telegram ID</label>
+          <input id="staffAccessTelegramId" inputmode="numeric" autocomplete="off" placeholder="Например, 518041233" />
+          <div class="hint">Сотрудник может скопировать свой ID из приложения и прислать тебе.</div>
+        </div>
+        <div class="field">
+          <label for="staffAccessEmployee">Сотрудник</label>
+          <select id="staffAccessEmployee"></select>
+        </div>
+        <button id="saveStaffAccess" class="compact-button" type="button">Добавить / обновить</button>
+        <div id="staffAccessStatus" class="status"></div>
+        <div id="staffAccessList" class="staff-access-list"></div>
+      </section>
+
       <section id="paymentHistoryCard" class="card payment-history-card" hidden>
         <div class="section-title">Выплаты за период</div>
         <div id="paymentHistoryList"></div>
@@ -214,6 +245,7 @@
   </main>
   <script type="module" src="./app.js"></script>
   <script type="module" src="./audit-ui.js"></script>
+  <script type="module" src="./staff-access-ui.js"></script>
   <script>
     (async () => {
       const card = document.getElementById('telegramIdentityCard');

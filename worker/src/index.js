@@ -1,5 +1,6 @@
 import { EMPLOYEES, FEE_PERCENT, calculateDistribution } from './calc.js';
 import { auditHistory } from './audit-history.js';
+import { listStaffAccess, resolveStaffAccess, saveStaffAccess, validateTelegramId } from './staff-access.js';
 
 const encoder = new TextEncoder();
 const BUSINESS_TIME_ZONE = 'Europe/Moscow';
@@ -76,19 +77,15 @@ async function validateTelegramInitData(initData, botToken, maxAgeSeconds = 8640
   return user;
 }
 
-function allowedIds(env) {
-  return String(env.ALLOWED_TELEGRAM_USER_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
-}
-
 function isOwner(user, env) {
   const ownerId = String(env.OWNER_TELEGRAM_USER_ID || '').trim();
   return Boolean(ownerId) && ownerId === String(user.id);
 }
 
-function ensureAllowedUser(user, env) {
-  const ids = allowedIds(env);
-  if (!ids.length) throw new ApiError(403, 'Список разрешённых Telegram ID ещё не настроен.');
-  if (!ids.includes(String(user.id))) throw new ApiError(403, 'У вас пока нет доступа к истории чаевых.');
+async function ensureAllowedUser(user, env) {
+  if (isOwner(user, env)) return;
+  const access = await resolveStaffAccess(env, String(user.id));
+  if (!access.allowed) throw new ApiError(403, 'У вас пока нет доступа к истории чаевых.');
 }
 
 function ensureOwner(user, env) {
@@ -127,7 +124,7 @@ function monthBounds(dateString) {
 async function authenticate(request, env, { requireAllowlist = true } = {}) {
   const initData = request.headers.get('X-Telegram-Init-Data') || '';
   const user = await validateTelegramInitData(initData, env.TELEGRAM_BOT_TOKEN);
-  if (requireAllowlist) ensureAllowedUser(user, env);
+  if (requireAllowlist) await ensureAllowedUser(user, env);
   return user;
 }
 
@@ -369,6 +366,33 @@ async function payments(url, env) {
   }));
 }
 
+async function staffAccessList(env, user) {
+  ensureOwner(user, env);
+  return listStaffAccess(env);
+}
+
+async function updateStaffAccess(request, env, user) {
+  ensureOwner(user, env);
+  const body = await request.json();
+  let telegramId;
+  try {
+    telegramId = validateTelegramId(body.telegramId);
+  } catch (error) {
+    throw new ApiError(400, error.message);
+  }
+
+  if (telegramId === String(user.id)) {
+    throw new ApiError(400, 'Доступ владельца управляется отдельно и всегда остаётся включённым.');
+  }
+
+  const employeeName = String(body.employeeName || '').trim();
+  const active = body.active !== false;
+  if (employeeName && !EMPLOYEES.includes(employeeName)) throw new ApiError(400, 'Неизвестный сотрудник.');
+  if (active && !employeeName) throw new ApiError(400, 'Выбери сотрудника для выдачи доступа.');
+
+  return saveStaffAccess(env, { telegramId, employeeName, active }, String(user.id));
+}
+
 export default {
   async fetch(request, env) {
     const cors = corsHeaders(request, env);
@@ -397,6 +421,8 @@ export default {
       if (url.pathname === '/api/summary' && request.method === 'GET') return json({ items: await summary(url, env) }, 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'GET') return json({ items: await payments(url, env) }, 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'POST') return json(await savePayment(request, env, user), 201, cors);
+      if (url.pathname === '/api/staff-access' && request.method === 'GET') return json({ items: await staffAccessList(env, user) }, 200, cors);
+      if (url.pathname === '/api/staff-access' && request.method === 'POST') return json(await updateStaffAccess(request, env, user), 200, cors);
       return json({ error: 'not_found' }, 404, cors);
     } catch (error) {
       const status = error instanceof ApiError ? error.status : 400;

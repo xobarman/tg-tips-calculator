@@ -207,25 +207,27 @@ async function loadDayStatus({ prefill = false } = {}) {
 
 async function loadMonthlyCounter() {
   if (!API_BASE) return;
-  $('monthlyCard').hidden=false;
-  $('accruedCard').hidden=false;
-  $('monthlyPeople').innerHTML='';
-  $('accruedPeople').innerHTML='';
+  const period = monthBounds(0);
+  $('monthlyCard').hidden = false;
+  $('monthlyLabel').textContent = period.label;
+  $('monthlyPeople').innerHTML = '';
+
   try {
-    const data=await api('/api/accruals');
-    const label=date=>date.slice(8,10)+'.'+date.slice(5,7)+'.'+date.slice(0,4);
-    $('monthlyLabel').textContent=label(data.from)+' – '+label(data.to);
-    const current=data.items.reduce((sum,item)=>sum+item.currentKopecks,0);
-    const accrued=data.items.reduce((sum,item)=>sum+item.accruedKopecks,0);
-    $('monthlyTotal').textContent=moneyKopecks(current);
-    $('accruedTotal').textContent=moneyKopecks(accrued);
-    $('monthlyCaption').textContent='После завершения периода остатки перейдут в начисленные.';
-    $('monthlyPeople').innerHTML=data.items.map(i=>`<div class="monthly-person"><span>${i.employeeName}</span><b>${moneyKopecks(i.currentKopecks)}</b></div>`).join('');
-    $('accruedPeople').innerHTML=data.items.map(i=>`<div class="monthly-person"><span>${i.employeeName}</span><b>${moneyKopecks(i.accruedKopecks)}</b></div>`).join('');
-  } catch(e) {
-    $('monthlyTotal').textContent='—';
-    $('accruedTotal').textContent='—';
-    $('monthlyCaption').textContent=e.message;
+    const summary = await api(`/api/summary?from=${encodeURIComponent(period.from)}&to=${encodeURIComponent(period.to)}`);
+    const distributed = summary.items.reduce((sum, item) => sum + item.distributedKopecks, 0);
+    const paid = summary.items.reduce((sum, item) => sum + item.paidKopecks, 0);
+    const due = summary.items.reduce((sum, item) => sum + item.dueKopecks, 0);
+    $('monthlyTotal').textContent = moneyKopecks(due);
+    $('monthlyCaption').textContent = summary.items.length
+      ? `Распределено ${moneyKopecks(distributed)} · выплачено ${moneyKopecks(paid)}`
+      : 'Новый месяц начался — сохранённых расчётов пока нет.';
+
+    $('monthlyPeople').innerHTML = summary.items.map(item =>
+      `<div class="monthly-person"><span>${item.employeeName}<small>Распределено ${moneyKopecks(item.distributedKopecks)} · выплачено ${moneyKopecks(item.paidKopecks)}</small></span><b>${moneyKopecks(item.dueKopecks)}</b></div>`
+    ).join('');
+  } catch (e) {
+    $('monthlyTotal').textContent = '—';
+    $('monthlyCaption').textContent = e.message;
   }
 }
 

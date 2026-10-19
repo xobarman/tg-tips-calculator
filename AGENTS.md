@@ -23,7 +23,9 @@ Telegram Mini App for calculating and recording staff tip distributions.
 - Actual employee payouts are a separate ledger from tip calculations. Only the configured owner Telegram ID may record payouts.
 - Displayed outstanding balances are distributed tips minus recorded payouts for the selected period/month.
 - Historical corrections also belong to owner-appointed administrators: an active D1 staff row with `can_correct = 1`. Administrators cannot manage staff access or record payments.
-- The accumulating balance is calculated for 1–15 and 16–last-day Moscow periods. After midnight following the 15th or month end it becomes part of "accrued"; active calculation rows and payments are never removed.
-- Payments settle older accrued balances before current-period balances. Owner/admin corrections update those derived balances and can expose an overpayment.
-- The original range-based summary and full payment and audit histories remain available.
+- Keep the original single "Остаток месяца" dashboard card. Monthly `distributed - paid` shows current outstanding tip debt; history never resets destructively.
+- Automatically record scheduled `payments` ONLY after a Moscow period ends: first close 2026-10-31 (write on Nov 1), then each 15th and last day of a month. The first close must include the existing full October unpaid balance; do NOT retroactively close October 15.
+- Automatic payment IDs are deterministic and each close is guarded by a D1 `automatic_period_closures` marker. A daily Worker cron at 21:05 UTC (00:05 Moscow) handles closing even when no app is open; finance reads also reconcile missed runs.
+- These records are **scheduled bank payouts as reported by the owner, not verified bank transfers**. The application has no bank API integration, so never represent it as an externally confirmed transaction. Real recorded manual payments remain in the ledger and are subtracted before automatic close.
+- All per-day calculations, manual payouts, corrections and audit history stay intact; no deletion or destructive resetting.
 - Prefer minimal changes and a small vertical slice over additional infrastructure.

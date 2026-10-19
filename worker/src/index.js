@@ -1,5 +1,6 @@
 import { EMPLOYEES, FEE_PERCENT, calculateDistribution } from './calc.js';
 import { auditHistory } from './audit-history.js';
+import { accrualPeriod, reconcileAccruals } from './accruals.js';
 import { listStaffAccess, resolveStaffAccess, saveStaffAccess, validateTelegramId } from './staff-access.js';
 
 const encoder = new TextEncoder();
@@ -136,16 +137,18 @@ async function activeCalculationForDate(env, businessDate) {
     LIMIT 1`).bind(businessDate).first();
 }
 
-function replacementAccess(existing, businessDate, user, env) {
+async function replacementAccess(existing, businessDate, user, env) {
   const owner = isOwner(user, env);
-  if (!existing) return { owner, daySubmitter: false, canReplace: false };
+  const canCorrect = owner || (await resolveStaffAccess(env, String(user.id))).canCorrect;
+  if (!existing) return { owner, canCorrect, daySubmitter: false, canReplace: false };
   const submitterId = String(existing.day_submitter_telegram_id || existing.created_by_telegram_id || '');
   const daySubmitter = submitterId === String(user.id);
   const sameBusinessDay = businessDate === businessDateNow();
   return {
     owner,
+    canCorrect,
     daySubmitter,
-    canReplace: owner || (daySubmitter && sameBusinessDay),
+    canReplace: canCorrect || (daySubmitter && sameBusinessDay),
   };
 }
 
@@ -153,7 +156,8 @@ async function dayStatus(url, env, user) {
   const businessDate = parseDate(url.searchParams.get('date'));
   const existing = await activeCalculationForDate(env, businessDate);
   const today = businessDateNow();
-  const access = replacementAccess(existing, businessDate, user, env);
+  const access = await replacementAccess(existing, businessDate, user, env);
+  const positions = existing ? ((await env.DB.prepare(`SELECT employee_name, position FROM payouts WHERE calculation_id = ? ORDER BY position`).bind(existing.id).all()).results || []) : [];
   return {
     businessDate,
     currentBusinessDate: today,
@@ -161,6 +165,8 @@ async function dayStatus(url, env, user) {
     canSave: !existing && businessDate === today,
     canReplace: access.canReplace,
     isOwner: access.owner,
+    canCorrect: access.canCorrect,
+    isAdmin: access.canCorrect && !access.owner,
     isDaySubmitter: access.daySubmitter,
     calculation: existing ? {
       id: existing.id,
@@ -168,6 +174,7 @@ async function dayStatus(url, env, user) {
       morningKopecks: Number(existing.morning_kopecks),
       eveningKopecks: Number(existing.evening_kopecks),
       participantCount: Number(existing.participant_count),
+      employees: [1, 2, 3].map(position => positions.find(row => Number(row.position) === position)?.employee_name || ''),
       createdByName: existing.created_by_name || '',
       createdAt: existing.created_at,
     } : null,
@@ -197,12 +204,12 @@ async function saveCalculation(request, env, user) {
   }
 
   if (existing && replace) {
-    const access = replacementAccess(existing, businessDate, user, env);
+    const access = await replacementAccess(existing, businessDate, user, env);
     if (!access.canReplace) {
       if (businessDate !== today) {
-        throw new ApiError(403, 'После 00:00 исправлять прошлые дни может только владелец.');
+        throw new ApiError(403, 'После 00:00 исправлять прошлые дни может только владелец или назначенный администратор.');
       }
-      throw new ApiError(403, 'До 00:00 исправить расчёт может только сотрудник, который сохранил его первым, или владелец.');
+      throw new ApiError(403, 'До 00:00 исправить расчёт может автор смены, владелец или назначенный администратор.');
     }
   }
 
@@ -312,19 +319,35 @@ async function summary(url, env) {
   });
 }
 
-async function employeeDueForMonth(env, employeeName, businessDate) {
-  const { from, to } = monthBounds(businessDate);
+async function employeeOutstanding(env, employeeName) {
   const row = await env.DB.prepare(`SELECT
-      COALESCE((SELECT SUM(p.amount_kopecks)
-        FROM payouts p JOIN calculations c ON c.id = p.calculation_id
-        WHERE c.is_active = 1 AND c.business_date BETWEEN ? AND ? AND p.employee_name = ?), 0) AS distributed_kopecks,
-      COALESCE((SELECT SUM(amount_kopecks)
-        FROM payments
-        WHERE business_date BETWEEN ? AND ? AND employee_name = ?), 0) AS paid_kopecks`)
-    .bind(from, to, employeeName, from, to, employeeName).first();
-  const distributed = Number(row?.distributed_kopecks || 0);
-  const paid = Number(row?.paid_kopecks || 0);
-  return distributed - paid;
+    COALESCE((SELECT SUM(p.amount_kopecks) FROM payouts p JOIN calculations c ON c.id=p.calculation_id WHERE c.is_active=1 AND p.employee_name=?),0) AS distributed_kopecks,
+    COALESCE((SELECT SUM(amount_kopecks) FROM payments WHERE employee_name=?),0) AS paid_kopecks`)
+    .bind(employeeName,employeeName).first();
+  return Number(row?.distributed_kopecks||0)-Number(row?.paid_kopecks||0);
+}
+
+async function accruals(env) {
+  const asOf=businessDateNow(),period=accrualPeriod(asOf);
+  const rows=(await env.DB.prepare(`WITH entries AS (
+      SELECT p.employee_name,c.business_date,p.amount_kopecks AS earned,0 AS paid
+      FROM payouts p JOIN calculations c ON c.id=p.calculation_id
+      WHERE c.is_active=1 AND c.business_date<=?
+      UNION ALL
+      SELECT employee_name,business_date,0 AS earned,amount_kopecks AS paid
+      FROM payments WHERE business_date<=?
+    )
+    SELECT employee_name,
+      SUM(CASE WHEN business_date<? THEN earned ELSE 0 END) AS closed_earned,
+      SUM(CASE WHEN business_date>=? THEN earned ELSE 0 END) AS current_earned,
+      SUM(paid) AS paid_total
+    FROM entries GROUP BY employee_name ORDER BY employee_name`)
+    .bind(asOf,asOf,period.from,period.from).all()).results||[];
+  const byName=new Map(reconcileAccruals(rows).map(x=>[x.employeeName,x]));
+  const items=EMPLOYEES.map(employeeName=>byName.get(employeeName)||{
+    employeeName,accruedKopecks:0,currentKopecks:0,totalOutstandingKopecks:0,distributedKopecks:0,paidKopecks:0
+  });
+  return {asOf,...period,items};
 }
 
 async function savePayment(request, env, user) {
@@ -335,9 +358,9 @@ async function savePayment(request, env, user) {
   const employeeName = String(body.employeeName || '');
   if (!EMPLOYEES.includes(employeeName)) throw new ApiError(400, 'Неизвестный сотрудник.');
   const amountKopecks = parseKopecks(body.amountKopecks, 'Выплата', { positive: true });
-  const dueKopecks = await employeeDueForMonth(env, employeeName, businessDate);
+  const dueKopecks = await employeeOutstanding(env, employeeName);
   if (amountKopecks > dueKopecks) {
-    throw new ApiError(400, `Сумма выплаты больше остатка сотрудника за этот месяц (${dueKopecks} коп.).`);
+    throw new ApiError(400, `Сумма выплаты больше невыплаченного остатка сотрудника (${dueKopecks} коп.).`);
   }
 
   const id = crypto.randomUUID();
@@ -390,7 +413,8 @@ async function updateStaffAccess(request, env, user) {
   if (employeeName && !EMPLOYEES.includes(employeeName)) throw new ApiError(400, 'Неизвестный сотрудник.');
   if (active && !employeeName) throw new ApiError(400, 'Выбери сотрудника для выдачи доступа.');
 
-  return saveStaffAccess(env, { telegramId, employeeName, active }, String(user.id));
+  const canCorrect = body.canCorrect === undefined ? undefined : body.canCorrect === true;
+  return saveStaffAccess(env, { telegramId, employeeName, active, canCorrect }, String(user.id));
 }
 
 export default {
@@ -403,12 +427,16 @@ export default {
       if (url.pathname === '/api/health' && request.method === 'GET') return json({ ok: true }, 200, cors);
       if (url.pathname === '/api/whoami' && request.method === 'GET') {
         const user = await authenticate(request, env, { requireAllowlist: false });
+        const owner = isOwner(user, env);
+        const correctionAccess = owner ? null : await resolveStaffAccess(env, String(user.id));
         return json({
           id: String(user.id),
           firstName: user.first_name || '',
           lastName: user.last_name || '',
           username: user.username || '',
-          isOwner: isOwner(user, env),
+          isOwner: owner,
+          canCorrect: owner || Boolean(correctionAccess?.canCorrect),
+          isAdmin: Boolean(!owner && correctionAccess?.canCorrect),
           currentBusinessDate: businessDateNow(),
         }, 200, cors);
       }
@@ -419,6 +447,7 @@ export default {
       if (url.pathname === '/api/history' && request.method === 'GET') return json({ items: await history(url, env) }, 200, cors);
       if (url.pathname === '/api/audit-history' && request.method === 'GET') return json({ items: await auditHistory(url, env) }, 200, cors);
       if (url.pathname === '/api/summary' && request.method === 'GET') return json({ items: await summary(url, env) }, 200, cors);
+      if (url.pathname === '/api/accruals' && request.method === 'GET') return json(await accruals(env), 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'GET') return json({ items: await payments(url, env) }, 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'POST') return json(await savePayment(request, env, user), 201, cors);
       if (url.pathname === '/api/staff-access' && request.method === 'GET') return json({ items: await staffAccessList(env, user) }, 200, cors);

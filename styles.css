@@ -146,6 +146,10 @@ h2 { margin: 3px 0 12px; font-size: 21px; letter-spacing: -.01em; }
   box-shadow: 0 7px 18px rgba(0, 0, 0, .16);
 }
 
+.staff-role-field { display:flex; align-items:center; gap:10px; margin:2px 0 16px; font-size:13px; line-height:1.4; }
+.staff-role-field input { flex:none; width:20px; height:20px; min-height:20px; padding:0; accent-color:var(--button); }
+.staff-role-action { margin-top:8px; width:100%; min-height:38px; padding:8px 12px; font-size:12px; }
+
 .monthly-card {
   overflow: hidden;
   position: relative;
@@ -155,6 +159,8 @@ h2 { margin: 3px 0 12px; font-size: 21px; letter-spacing: -.01em; }
     linear-gradient(180deg, rgba(42, 171, 238, .07), rgba(255,255,255,.01)),
     var(--card);
 }
+
+.accrued-card { border-color:rgba(52,211,153,.26); background:linear-gradient(180deg,rgba(52,211,153,.045),transparent),var(--card); }
 
 .monthly-head {
   display: flex;

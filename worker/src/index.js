@@ -1,5 +1,6 @@
 import { EMPLOYEES, FEE_PERCENT, calculateDistribution } from './calc.js';
 import { auditHistory } from './audit-history.js';
+import { canCreateCalculationForDate } from './day-access.js';
 import { closedPeriodsBefore, FIRST_AUTO_PERIOD_START } from './accruals.js';
 import { listStaffAccess, resolveStaffAccess, saveStaffAccess, validateTelegramId } from './staff-access.js';
 
@@ -162,7 +163,7 @@ async function dayStatus(url, env, user) {
     businessDate,
     currentBusinessDate: today,
     hasCalculation: Boolean(existing),
-    canSave: !existing && businessDate === today,
+    canSave: canCreateCalculationForDate(Boolean(existing), businessDate, today, access.owner),
     canReplace: access.canReplace,
     isOwner: access.owner,
     canCorrect: access.canCorrect,
@@ -193,8 +194,9 @@ async function saveCalculation(request, env, user) {
   const replace = body.replace === true;
   const existing = await activeCalculationForDate(env, businessDate);
 
-  if (!existing && businessDate !== today) {
-    throw new ApiError(400, 'Новый расчёт можно сохранять только за текущий день по Москве.');
+  if (!existing && !canCreateCalculationForDate(false, businessDate, today, isOwner(user, env))) {
+    if (businessDate > today) throw new ApiError(400, 'Нельзя сохранить расчёт за будущую дату.');
+    throw new ApiError(403, 'Заполнять пропущенные прошлые дни может только владелец.');
   }
   if (existing && !replace) {
     throw new ApiError(409, 'Расчёт за этот день уже сохранён. Используй исправление, если у тебя есть право на него.');

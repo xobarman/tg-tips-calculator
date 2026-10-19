@@ -138,7 +138,7 @@ function updateSaveAvailability() {
     return;
   }
   if (!currentDayStatus) {
-    $('save').disabled = false;
+    $('save').disabled = true;
     $('save').textContent = '💾 Сохранить расчёт';
     return;
   }
@@ -176,8 +176,8 @@ async function loadDayStatus({ prefill = false } = {}) {
     if (!currentDayStatus.hasCalculation) {
       if (isToday) {
         setStatus($('dayStatus'), 'Сегодня ещё нет сохранённого расчёта. Первый сохранённый расчёт станет итоговым за сутки.', 'ok');
-      } else if (currentDayStatus.canCorrect) {
-        setStatus($('dayStatus'), 'За выбранную дату сохранённого расчёта нет. Исправлять можно только уже существующие прошлые записи.', 'locked');
+      } else if (currentDayStatus.isOwner) {
+        setStatus($('dayStatus'), 'За выбранную дату расчёта нет. Как владелец, ты можешь внести пропущенный расчёт и сохранить его.', 'owner');
       } else {
         setStatus($('dayStatus'), 'Сотрудникам доступно сохранение только за текущий день.', 'locked');
       }
@@ -236,6 +236,9 @@ async function saveCalculation() {
   const replacing = Boolean(currentDayStatus?.hasCalculation);
   if (replacing && !currentDayStatus?.canReplace) {
     return setStatus($('saveStatus'), 'У тебя нет права исправлять сохранённый расчёт за эту дату.', 'bad');
+  }
+  if (!replacing && !currentDayStatus?.canSave) {
+    return setStatus($('saveStatus'), 'Нет права сохранять расчёт за эту дату. Обнови статус дня.', 'bad');
   }
   if (replacing) {
     const ok = await confirmAction('Заменить сохранённый расчёт за выбранный день? Старый вариант останется только в техническом журнале и перестанет влиять на суммы.');

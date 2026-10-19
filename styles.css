@@ -337,8 +337,19 @@ button:disabled { opacity: .47; cursor: default; transform: none; }
     var(--card);
 }
 .summary-line b { font-size: 16px; }
-.balance-line { align-items: flex-end; }
-.balance-line span { display: grid; gap: 2px; }
+.balance-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  column-gap: 12px;
+}
+.balance-line > span { display: grid; min-width: 0; gap: 2px; overflow-wrap: anywhere; }
+.balance-line > b {
+  justify-self: end;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(12px, 3.5vw, 16px);
+}
 .balance-line small { color: var(--muted); font-size: 10px; font-weight: 500; }
 
 .owner-card {

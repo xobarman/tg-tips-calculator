@@ -5,7 +5,7 @@
 - Live Telegram Mini App uses Cloudflare Worker production: `https://tg-tips-calculator.xobarman.workers.dev`.
 - Telegram Menu Button and Main App point to the Cloudflare production URL.
 - Production D1 is separate from DEV and must remain isolated from DEV/test data.
-- Current production before the staff-access promotion is `main` at `631927a`.
+- Last verified GitHub production deployment: 2026-09-17, `main` at `1dbea1f`. Owner reports the production calculator has operated successfully for about 1.5 months (2026-10-19).
 
 ## Production functionality
 - Branding: `Encore Café City · Чаевые`, developer mark `by Novikov Development`.
@@ -39,8 +39,16 @@
 - Production deployment packaging was also fixed to include `staff-access-ui.js` before promotion.
 - Production must reuse existing D1 `tg-tips-calculator-prod-20260916`; DEV data must never be imported.
 
+## Feature development 2026-10-19 (NOT production)
+- Branch: `feature/admin-accrual-periods-20261019`, based on `dev`.
+- Owner-managed admin permission: `staff_access.can_correct` (migration `0005_staff_can_correct.sql`). Admins may correct existing calculations for any date but cannot record payments or manage staff.
+- Derived tip balances: current Moscow half-month (1–15 or 16–last) and separately previously accrued unpaid money. Amounts switch at 00:00 on 16th and 1st; no cron, history deletion, or destructive zeroing.
+- Actual payments settle older accrued balances first. Changes to old calculations automatically reflow into the accrued amount; negative due after retroactive corrections stays visible.
+- CAUTION: The current historical data may contain payments actually made outside the app and not entered in the payment ledger. The initial accrued amount must be reconciled before production release.
+- Feature-branch tests pass; no feature deployment to production has been performed.
+
 ## Current blocker
-None. The owner explicitly approved production promotion of the verified D1 staff-access release on 2026-09-17.
+Telegram end-to-end testing in isolated DEV and opening balance reconciliation have not yet been completed.
 
 ## NEXT_ACTION
-Fast-forward `main` to verified `dev`, let GitHub Actions apply `0004_staff_access.sql` to the existing production D1 and deploy the production Worker/static assets, verify CI and production health, then manually confirm `Доступ сотрудников` in the live Telegram Mini App before migrating remaining legacy staff IDs.
+Merge feature into `dev` only, inspect isolated DEV deployment/migration, test administrator corrections, boundary rollovers and payments inside Telegram, and confirm opening balances before asking for explicit production approval.

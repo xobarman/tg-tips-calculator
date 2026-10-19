@@ -20,8 +20,9 @@ export function calculateDistribution({ totalKopecks, morningKopecks, eveningKop
   if (!Array.isArray(employees) || employees.length !== 3) throw new Error('Нужно передать три позиции официантов.');
 
   const selected = employees.filter(Boolean);
-  if (selected.length < 2 || selected.length > 3) throw new Error('В смене должно быть два или три официанта.');
-  if (employees[0] === '' || employees[1] === '') throw new Error('Официанты 1 и 2 обязательны.');
+  if (selected.length < 1 || selected.length > 3) throw new Error('Выбери хотя бы одного официанта.');
+  if (!employees[0]) throw new Error('Первый официант обязателен.');
+  if (employees[2] && !employees[1]) throw new Error('Сначала выбери второго официанта.');
   if (selected.some(name => !EMPLOYEES.includes(name))) throw new Error('Неизвестный сотрудник.');
   if (new Set(selected).size !== selected.length) throw new Error('Одного сотрудника нельзя выбрать дважды.');
 
@@ -32,7 +33,7 @@ export function calculateDistribution({ totalKopecks, morningKopecks, eveningKop
   const shiftNet = applyFee(shiftGross);
 
   const commonShares = splitEvenly(commonNet, participantCount);
-  const shiftShares = splitEvenly(shiftNet, 2);
+  const shiftShares = splitEvenly(shiftNet, Math.min(2, participantCount));
 
   const payouts = selected.map((employeeName, i) => ({
     employeeName,

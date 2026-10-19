@@ -1,5 +1,6 @@
 import { EMPLOYEES, FEE_PERCENT, calculateDistribution } from './calc.js';
 import { auditHistory } from './audit-history.js';
+import { accrualPeriod, reconcileAccruals } from './accruals.js';
 import { listStaffAccess, resolveStaffAccess, saveStaffAccess, validateTelegramId } from './staff-access.js';
 
 const encoder = new TextEncoder();
@@ -318,19 +319,35 @@ async function summary(url, env) {
   });
 }
 
-async function employeeDueForMonth(env, employeeName, businessDate) {
-  const { from, to } = monthBounds(businessDate);
+async function employeeOutstanding(env, employeeName) {
   const row = await env.DB.prepare(`SELECT
-      COALESCE((SELECT SUM(p.amount_kopecks)
-        FROM payouts p JOIN calculations c ON c.id = p.calculation_id
-        WHERE c.is_active = 1 AND c.business_date BETWEEN ? AND ? AND p.employee_name = ?), 0) AS distributed_kopecks,
-      COALESCE((SELECT SUM(amount_kopecks)
-        FROM payments
-        WHERE business_date BETWEEN ? AND ? AND employee_name = ?), 0) AS paid_kopecks`)
-    .bind(from, to, employeeName, from, to, employeeName).first();
-  const distributed = Number(row?.distributed_kopecks || 0);
-  const paid = Number(row?.paid_kopecks || 0);
-  return distributed - paid;
+    COALESCE((SELECT SUM(p.amount_kopecks) FROM payouts p JOIN calculations c ON c.id=p.calculation_id WHERE c.is_active=1 AND p.employee_name=?),0) AS distributed_kopecks,
+    COALESCE((SELECT SUM(amount_kopecks) FROM payments WHERE employee_name=?),0) AS paid_kopecks`)
+    .bind(employeeName,employeeName).first();
+  return Number(row?.distributed_kopecks||0)-Number(row?.paid_kopecks||0);
+}
+
+async function accruals(env) {
+  const asOf=businessDateNow(),period=accrualPeriod(asOf);
+  const rows=(await env.DB.prepare(`WITH entries AS (
+      SELECT p.employee_name,c.business_date,p.amount_kopecks AS earned,0 AS paid
+      FROM payouts p JOIN calculations c ON c.id=p.calculation_id
+      WHERE c.is_active=1 AND c.business_date<=?
+      UNION ALL
+      SELECT employee_name,business_date,0 AS earned,amount_kopecks AS paid
+      FROM payments WHERE business_date<=?
+    )
+    SELECT employee_name,
+      SUM(CASE WHEN business_date<? THEN earned ELSE 0 END) AS closed_earned,
+      SUM(CASE WHEN business_date>=? THEN earned ELSE 0 END) AS current_earned,
+      SUM(paid) AS paid_total
+    FROM entries GROUP BY employee_name ORDER BY employee_name`)
+    .bind(asOf,asOf,period.from,period.from).all()).results||[];
+  const byName=new Map(reconcileAccruals(rows).map(x=>[x.employeeName,x]));
+  const items=EMPLOYEES.map(employeeName=>byName.get(employeeName)||{
+    employeeName,accruedKopecks:0,currentKopecks:0,totalOutstandingKopecks:0,distributedKopecks:0,paidKopecks:0
+  });
+  return {asOf,...period,items};
 }
 
 async function savePayment(request, env, user) {
@@ -341,9 +358,9 @@ async function savePayment(request, env, user) {
   const employeeName = String(body.employeeName || '');
   if (!EMPLOYEES.includes(employeeName)) throw new ApiError(400, 'Неизвестный сотрудник.');
   const amountKopecks = parseKopecks(body.amountKopecks, 'Выплата', { positive: true });
-  const dueKopecks = await employeeDueForMonth(env, employeeName, businessDate);
+  const dueKopecks = await employeeOutstanding(env, employeeName);
   if (amountKopecks > dueKopecks) {
-    throw new ApiError(400, `Сумма выплаты больше остатка сотрудника за этот месяц (${dueKopecks} коп.).`);
+    throw new ApiError(400, `Сумма выплаты больше невыплаченного остатка сотрудника (${dueKopecks} коп.).`);
   }
 
   const id = crypto.randomUUID();
@@ -430,6 +447,7 @@ export default {
       if (url.pathname === '/api/history' && request.method === 'GET') return json({ items: await history(url, env) }, 200, cors);
       if (url.pathname === '/api/audit-history' && request.method === 'GET') return json({ items: await auditHistory(url, env) }, 200, cors);
       if (url.pathname === '/api/summary' && request.method === 'GET') return json({ items: await summary(url, env) }, 200, cors);
+      if (url.pathname === '/api/accruals' && request.method === 'GET') return json(await accruals(env), 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'GET') return json({ items: await payments(url, env) }, 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'POST') return json(await savePayment(request, env, user), 201, cors);
       if (url.pathname === '/api/staff-access' && request.method === 'GET') return json({ items: await staffAccessList(env, user) }, 200, cors);

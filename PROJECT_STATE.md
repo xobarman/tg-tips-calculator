@@ -5,7 +5,7 @@
 - Live Telegram Mini App uses Cloudflare Worker production: `https://tg-tips-calculator.xobarman.workers.dev`.
 - Telegram Menu Button and Main App point to the Cloudflare production URL.
 - Production D1 is separate from DEV and must remain isolated from DEV/test data.
-- Last verified GitHub production deployment: 2026-09-17, `main` at `1dbea1f`. Owner reports the production calculator has operated successfully for about 1.5 months (2026-10-19).
+- Production deployed and passed CI/health on 2026-10-19 (`2ed4511`). Owner reports the production calculator has operated successfully for about 1.5 months (2026-10-19).
 
 ## Production functionality
 - Branding: `Encore Café City · Чаевые`, developer mark `by Novikov Development`.
@@ -47,8 +47,17 @@
 - CAUTION: The current historical data may contain payments actually made outside the app and not entered in the payment ledger. The initial accrued amount must be reconciled before production release.
 - Feature-branch tests pass; no feature deployment to production has been performed.
 
+## October 19 correction / current work
+- Owner rejected the second "Начислено" card. Restore exactly one original monthly outstanding card with employee names, distributed amounts and paid amounts.
+- October 2026 currently remains open throughout Oct 31, including its pre-existing balance. The first automatic bank-scheduled ledger payout is recorded only after Moscow midnight on Nov 1, with `business_date = 2026-10-31`.
+- Future closes: Nov 15 -> Nov 16, Nov 30 -> Dec 1, and continuing on every 15th / month end.
+- New no-data-loss `0006_auto_period_closures.sql`; existing production D1 is never replaced. Payments are inserted only for still-unpaid amounts and uniquely keyed per employee and close date.
+- Daily Worker scheduled trigger (21:05 UTC -> 00:05 MSK), plus idempotent reconciliation on authenticated financial API reads.
+- Automatic payment rows indicate bank-payment schedule only. No bank transaction verification is connected.
+- Do not release to production before DEV tests and explicit user approval.
+
 ## Current blocker
-Telegram end-to-end testing in isolated DEV and opening balance reconciliation have not yet been completed.
+Validate the corrected one-card display and automatic payout closing logic in DEV; do not modify or delete any historical production ledger rows.
 
 ## NEXT_ACTION
-Merge feature into `dev` only, inspect isolated DEV deployment/migration, test administrator corrections, boundary rollovers and payments inside Telegram, and confirm opening balances before asking for explicit production approval.
+Test idempotent auto-payment settlement in DEV and verify original monthly UI; then request production approval.

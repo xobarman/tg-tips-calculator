@@ -1,6 +1,6 @@
 import { EMPLOYEES, FEE_PERCENT, calculateDistribution } from './calc.js';
 import { auditHistory } from './audit-history.js';
-import { accrualPeriod, reconcileAccruals } from './accruals.js';
+import { closedPeriodsBefore, FIRST_AUTO_PERIOD_START } from './accruals.js';
 import { listStaffAccess, resolveStaffAccess, saveStaffAccess, validateTelegramId } from './staff-access.js';
 
 const encoder = new TextEncoder();
@@ -327,27 +327,45 @@ async function employeeOutstanding(env, employeeName) {
   return Number(row?.distributed_kopecks||0)-Number(row?.paid_kopecks||0);
 }
 
-async function accruals(env) {
-  const asOf=businessDateNow(),period=accrualPeriod(asOf);
-  const rows=(await env.DB.prepare(`WITH entries AS (
-      SELECT p.employee_name,c.business_date,p.amount_kopecks AS earned,0 AS paid
-      FROM payouts p JOIN calculations c ON c.id=p.calculation_id
-      WHERE c.is_active=1 AND c.business_date<=?
-      UNION ALL
-      SELECT employee_name,business_date,0 AS earned,amount_kopecks AS paid
-      FROM payments WHERE business_date<=?
-    )
-    SELECT employee_name,
-      SUM(CASE WHEN business_date<? THEN earned ELSE 0 END) AS closed_earned,
-      SUM(CASE WHEN business_date>=? THEN earned ELSE 0 END) AS current_earned,
-      SUM(paid) AS paid_total
-    FROM entries GROUP BY employee_name ORDER BY employee_name`)
-    .bind(asOf,asOf,period.from,period.from).all()).results||[];
-  const byName=new Map(reconcileAccruals(rows).map(x=>[x.employeeName,x]));
-  const items=EMPLOYEES.map(employeeName=>byName.get(employeeName)||{
-    employeeName,accruedKopecks:0,currentKopecks:0,totalOutstandingKopecks:0,distributedKopecks:0,paidKopecks:0
-  });
-  return {asOf,...period,items};
+const AUTO_SETTLEMENT_ACTOR = 'AUTO_BANK_SCHEDULE';
+const AUTO_SETTLEMENT_LABEL = 'Автоматически · график банка (без подтверждения операции)';
+
+// A single D1 transaction handles one closed period. Unique deterministic payment IDs
+// and the closure marker make concurrent cron/read retries idempotent.
+export async function settleClosedPeriods(env, today = businessDateNow()) {
+  for (const closeDate of closedPeriodsBefore(today)) {
+    const alreadyClosed = await env.DB.prepare(
+      'SELECT close_date FROM automatic_period_closures WHERE close_date = ? LIMIT 1'
+    ).bind(closeDate).first();
+    if (alreadyClosed) continue;
+
+    const statements = EMPLOYEES.map((employeeName, index) => env.DB.prepare(`
+      INSERT OR IGNORE INTO payments
+        (id, business_date, employee_name, amount_kopecks, created_by_telegram_id, created_by_name)
+      SELECT ?, ?, ?, unpaid, ?, ?
+      FROM (
+        SELECT
+          COALESCE((SELECT SUM(p.amount_kopecks)
+            FROM payouts p JOIN calculations c ON c.id = p.calculation_id
+            WHERE c.is_active = 1 AND c.business_date BETWEEN ? AND ?
+              AND p.employee_name = ?), 0)
+          -
+          COALESCE((SELECT SUM(amount_kopecks) FROM payments
+            WHERE business_date BETWEEN ? AND ? AND employee_name = ?), 0) AS unpaid
+      )
+      WHERE unpaid > 0
+    `).bind(
+      `auto-${closeDate}-${index + 1}`, closeDate, employeeName,
+      AUTO_SETTLEMENT_ACTOR, AUTO_SETTLEMENT_LABEL,
+      FIRST_AUTO_PERIOD_START, closeDate, employeeName,
+      FIRST_AUTO_PERIOD_START, closeDate, employeeName
+    ));
+
+    statements.push(env.DB.prepare(
+      'INSERT OR IGNORE INTO automatic_period_closures (close_date) VALUES (?)'
+    ).bind(closeDate));
+    await env.DB.batch(statements);
+  }
 }
 
 async function savePayment(request, env, user) {
@@ -418,6 +436,9 @@ async function updateStaffAccess(request, env, user) {
 }
 
 export default {
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(settleClosedPeriods(env));
+  },
   async fetch(request, env) {
     const cors = corsHeaders(request, env);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
@@ -442,12 +463,15 @@ export default {
       }
 
       const user = await authenticate(request, env);
+      // Lazy reconciliation also closes periods if a scheduled trigger was delayed.
+      if (['/api/summary', '/api/payments', '/api/calculations'].includes(url.pathname)) {
+        await settleClosedPeriods(env);
+      }
       if (url.pathname === '/api/day-status' && request.method === 'GET') return json(await dayStatus(url, env, user), 200, cors);
       if (url.pathname === '/api/calculations' && request.method === 'POST') return json(await saveCalculation(request, env, user), 201, cors);
       if (url.pathname === '/api/history' && request.method === 'GET') return json({ items: await history(url, env) }, 200, cors);
       if (url.pathname === '/api/audit-history' && request.method === 'GET') return json({ items: await auditHistory(url, env) }, 200, cors);
       if (url.pathname === '/api/summary' && request.method === 'GET') return json({ items: await summary(url, env) }, 200, cors);
-      if (url.pathname === '/api/accruals' && request.method === 'GET') return json(await accruals(env), 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'GET') return json({ items: await payments(url, env) }, 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'POST') return json(await savePayment(request, env, user), 201, cors);
       if (url.pathname === '/api/staff-access' && request.method === 'GET') return json({ items: await staffAccessList(env, user) }, 200, cors);

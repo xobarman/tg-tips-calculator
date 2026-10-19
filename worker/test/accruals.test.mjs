@@ -1,29 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {accrualPeriod,reconcileAccruals} from '../src/accruals.js';
-test('15th included; 16th starts a fresh balance',()=>{
- assert.deepEqual(accrualPeriod('2026-10-15'),{from:'2026-10-01',to:'2026-10-15',lastClosedDate:'2026-09-30'});
- assert.deepEqual(accrualPeriod('2026-10-16'),{from:'2026-10-16',to:'2026-10-31',lastClosedDate:'2026-10-15'});
+import { closedPeriodsBefore, accrualPeriod, FIRST_AUTO_PERIOD_START } from '../src/accruals.js';
+
+test('existing October balance stays open, even after October 15', () => {
+  assert.equal(FIRST_AUTO_PERIOD_START, '2026-10-01');
+  for (const day of ['2026-10-15', '2026-10-16', '2026-10-19', '2026-10-31'])
+    assert.deepEqual(closedPeriodsBefore(day), []);
 });
-test('rollover on last day and next month',()=>{
- assert.deepEqual(accrualPeriod('2026-10-31'),{from:'2026-10-16',to:'2026-10-31',lastClosedDate:'2026-10-15'});
- assert.deepEqual(accrualPeriod('2026-11-01'),{from:'2026-11-01',to:'2026-11-15',lastClosedDate:'2026-10-31'});
+test('first close runs on November 1, never in October', () => {
+  assert.deepEqual(closedPeriodsBefore('2026-11-01'), ['2026-10-31']);
 });
-test('short and leap months',()=>{
- assert.equal(accrualPeriod('2027-02-16').to,'2027-02-28');
- assert.equal(accrualPeriod('2028-02-16').to,'2028-02-29');
- assert.throws(()=>accrualPeriod('2027-02-29'));
+test('subsequent closes occur on November 16 and December 1', () => {
+  assert.deepEqual(closedPeriodsBefore('2026-11-15'), ['2026-10-31']);
+  assert.deepEqual(closedPeriodsBefore('2026-11-16'), ['2026-10-31', '2026-11-15']);
+  assert.deepEqual(closedPeriodsBefore('2026-12-01'), ['2026-10-31','2026-11-15','2026-11-30']);
 });
-test('old balance rolls into accrued without affecting fresh balance',()=>{
- const [a]=reconcileAccruals([{employee_name:'Анна',closed_earned:100000,current_earned:0,paid_total:10000}]);
- assert.equal(a.accruedKopecks,90000);assert.equal(a.currentKopecks,0);
+test('28/29/30/31-day month ends and year rollovers', () => {
+  const feb = closedPeriodsBefore('2027-03-01');
+  assert.ok(feb.includes('2027-02-15'));
+  assert.ok(feb.includes('2027-02-28'));
+  const leap = closedPeriodsBefore('2028-03-01');
+  assert.ok(leap.includes('2028-02-29'));
+  assert.ok(closedPeriodsBefore('2027-01-01').includes('2026-12-31'));
+  assert.deepEqual(accrualPeriod('2026-11-16'), {from:'2026-11-16',to:'2026-11-30'});
 });
-test('payments consume accrued before current, historical corrections reflow',()=>{
- const base={employee_name:'Анна',closed_earned:100000,current_earned:50000,paid_total:120000};
- const [a]=reconcileAccruals([base]);assert.equal(a.accruedKopecks,0);assert.equal(a.currentKopecks,30000);
- const [b]=reconcileAccruals([{...base,closed_earned:70000}]);assert.equal(b.currentKopecks,0);
-});
-test('overpayments from retroactive corrections remain visible',()=>{
- const [a]=reconcileAccruals([{employee_name:'Анна',closed_earned:10000,current_earned:5000,paid_total:20000}]);
- assert.equal(a.accruedKopecks,0);assert.equal(a.currentKopecks,-5000);assert.equal(a.totalOutstandingKopecks,-5000);
+test('invalid dates cannot be close checkpoints', () => {
+  assert.throws(() => closedPeriodsBefore('2027-02-29'),/Invalid business date/);
 });

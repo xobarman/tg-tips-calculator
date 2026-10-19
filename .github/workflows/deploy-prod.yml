@@ -120,6 +120,9 @@ jobs:
           ALLOWED_ORIGINS = ""
           ALLOWED_TELEGRAM_USER_IDS = "$EFFECTIVE_ALLOWED_TELEGRAM_USER_IDS"
 
+          [triggers]
+          crons = ["5 21 * * *"]
+
           [assets]
           directory = "../dist-prod"
           run_worker_first = ["/api/*"]

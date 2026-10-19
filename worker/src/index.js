@@ -332,7 +332,7 @@ const AUTO_SETTLEMENT_LABEL = 'Автоматически · график бан
 
 // A single D1 transaction handles one closed period. Unique deterministic payment IDs
 // and the closure marker make concurrent cron/read retries idempotent.
-async function settleClosedPeriods(env, today = businessDateNow()) {
+export async function settleClosedPeriods(env, today = businessDateNow()) {
   for (const closeDate of closedPeriodsBefore(today)) {
     const alreadyClosed = await env.DB.prepare(
       'SELECT close_date FROM automatic_period_closures WHERE close_date = ? LIMIT 1'

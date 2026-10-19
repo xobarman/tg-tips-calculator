@@ -9,8 +9,10 @@ Telegram Mini App for calculating and recording staff tip distributions.
 - Do not commit Telegram bot tokens, Cloudflare tokens, D1 credentials, Telegram user IDs used for access control, or other secrets.
 - Money is stored and calculated as integer kopecks.
 - Commission is fixed at 8% unless the user explicitly changes the business rule.
-- Waiters 1 and 2 receive both the common share and the `morning + evening` share.
-- Waiter 3 is optional. If absent, the common share is split between waiters 1 and 2.
+- One, two, or three waiters may participate. Waiter 1 is required; waiter 2 and 3 are optional, but waiter 3 cannot be selected without waiter 2.
+- With one waiter, the sole waiter receives the entire common and `morning + evening` net amounts (8% fee applied as before).
+- With two or three waiters, waiters 1 and 2 receive both the common share and the `morning + evening` share. Waiter 3 receives only the common share.
+- The common share is divided among all selected waiters; the shift share is divided among up to the first two waiters.
 - Allowed employee names: Александр, Александра, Анна, Арсик, Снежа.
 - The same employee cannot occupy two waiter positions in one calculation.
 - Server-side code must recalculate payouts; never trust payout totals submitted by the client.

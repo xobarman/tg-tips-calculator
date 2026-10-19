@@ -49,16 +49,19 @@ function monthBounds(offset = 0) {
 }
 function uniqueSelected() { return [$('employee1').value, $('employee2').value, $('employee3').value].filter(Boolean); }
 
-function populateSelect(select, { allowBlank = false, allLabel = null } = {}) {
+function populateSelect(select, { allowBlank = false, allLabel = null, blankLabel = 'Не выбран' } = {}) {
   select.innerHTML = '';
   if (allLabel !== null) select.add(new Option(allLabel, ''));
-  else if (allowBlank) select.add(new Option('⬜ Нет третьего', ''));
+  else if (allowBlank) select.add(new Option(blankLabel, ''));
   else select.add(new Option('Выбрать сотрудника', ''));
   EMPLOYEES.forEach(name => select.add(new Option(name, name)));
 }
 
 function refreshDisabledOptions() {
   const selects = [$('employee1'), $('employee2'), $('employee3')];
+  // The third position is available only after the second is selected.
+  if (!selects[1].value) selects[2].value = '';
+  selects[2].disabled = !selects[1].value;
   const values = selects.map(s => s.value);
   selects.forEach((select, index) => {
     [...select.options].forEach(option => {
@@ -81,7 +84,8 @@ function calculate() {
   if ([total, morning, evening].some(Number.isNaN)) return showError('Проверь суммы: можно вводить через точку или запятую.');
   if ([total, morning, evening].some(v => v < 0)) return showError('Суммы не могут быть отрицательными.');
   if (morning + evening > total) return showError('Утро + вечер не могут быть больше итога.');
-  if (!employees[0] || !employees[1]) return showError('Выбери официантов 1 и 2.');
+  if (!employees[0]) return showError('Выбери официанта 1.');
+  if (employees[2] && !employees[1]) return showError('Сначала выбери официанта 2.');
   const selected = uniqueSelected();
   if (new Set(selected).size !== selected.length) return showError('Одного сотрудника нельзя выбрать дважды.');
 
@@ -89,7 +93,7 @@ function calculate() {
   const commonNet = applyFee(total - morning - evening);
   const shiftNet = applyFee(morning + evening);
   const common = splitEvenly(commonNet, participantCount);
-  const shift = splitEvenly(shiftNet, 2);
+  const shift = splitEvenly(shiftNet, Math.min(2, participantCount));
   const payouts = selected.map((employeeName, i) => ({ employeeName, position: i + 1, amountKopecks: common[i] + (i < 2 ? shift[i] : 0) }));
   const distributed = payouts.reduce((sum, p) => sum + p.amountKopecks, 0);
 
@@ -372,11 +376,12 @@ function openTab(name) {
 }
 
 populateSelect($('employee1'));
-populateSelect($('employee2'));
-populateSelect($('employee3'), { allowBlank: true });
+populateSelect($('employee2'), { allowBlank: true, blankLabel: '⬜ Нет второго' });
+populateSelect($('employee3'), { allowBlank: true, blankLabel: '⬜ Нет третьего' });
 populateSelect($('employeeFilter'), { allLabel: 'Все сотрудники' });
 populateSelect($('paymentEmployee'));
 [$('employee1'), $('employee2'), $('employee3')].forEach(s => s.addEventListener('change', refreshDisabledOptions));
+refreshDisabledOptions();
 const initialToday = businessTodayIso();
 $('businessDate').value = initialToday;
 $('businessDate').min = initialToday;

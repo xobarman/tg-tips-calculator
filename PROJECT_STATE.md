@@ -67,3 +67,9 @@ Validate the corrected one-card display and automatic payout closing logic in DE
 
 ## NEXT_ACTION
 Test idempotent auto-payment settlement in DEV and verify original monthly UI; then request production approval.
+
+## One-waiter calculation (2026-10-19)
+- New owner request: a shift may have only waiter 1 selected, with waiter 2 and 3 empty.
+- All net common and net `morning + evening` tips go to that one waiter; 8% fee, historical 2/3 person rules, integer kopeck rounding and server-side recalculation are unchanged.
+- UI allows `Нет второго` and disables the third selector until waiter 2 is selected.
+- Validate unit tests and DEV live page before production release; no schema changes, no modifications to existing financial data.

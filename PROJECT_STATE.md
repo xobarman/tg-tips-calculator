@@ -56,6 +56,12 @@
 - Automatic payment rows indicate bank-payment schedule only. No bank transaction verification is connected.
 - Do not release to production before DEV tests and explicit user approval.
 
+## Fix 2026-10-19: owner missed-day backfill and summary overflow
+- Owner screenshot showed an unsaved calculation for historical date 2026-10-18. Existing API prevented *creating* historical entries even for owner. Allow owner-only creation of missing past days, while preserving one active saved entry per date, audit, Telegram identity and current-day staff restrictions.
+- The payment ledger editing UI is a separate feature and remains unchanged; no payment amounts have been modified.
+- Mobile summary negative balances now keep amount and RUB unit on a single line using a two-column minmax/max-content grid.
+- Work on feature branch; verify DEV before production promotion.
+
 ## Current blocker
 Validate the corrected one-card display and automatic payout closing logic in DEV; do not modify or delete any historical production ledger rows.
 

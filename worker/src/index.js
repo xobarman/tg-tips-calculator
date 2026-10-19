@@ -136,16 +136,18 @@ async function activeCalculationForDate(env, businessDate) {
     LIMIT 1`).bind(businessDate).first();
 }
 
-function replacementAccess(existing, businessDate, user, env) {
+async function replacementAccess(existing, businessDate, user, env) {
   const owner = isOwner(user, env);
-  if (!existing) return { owner, daySubmitter: false, canReplace: false };
+  const canCorrect = owner || (await resolveStaffAccess(env, String(user.id))).canCorrect;
+  if (!existing) return { owner, canCorrect, daySubmitter: false, canReplace: false };
   const submitterId = String(existing.day_submitter_telegram_id || existing.created_by_telegram_id || '');
   const daySubmitter = submitterId === String(user.id);
   const sameBusinessDay = businessDate === businessDateNow();
   return {
     owner,
+    canCorrect,
     daySubmitter,
-    canReplace: owner || (daySubmitter && sameBusinessDay),
+    canReplace: canCorrect || (daySubmitter && sameBusinessDay),
   };
 }
 
@@ -153,7 +155,8 @@ async function dayStatus(url, env, user) {
   const businessDate = parseDate(url.searchParams.get('date'));
   const existing = await activeCalculationForDate(env, businessDate);
   const today = businessDateNow();
-  const access = replacementAccess(existing, businessDate, user, env);
+  const access = await replacementAccess(existing, businessDate, user, env);
+  const positions = existing ? ((await env.DB.prepare(`SELECT employee_name, position FROM payouts WHERE calculation_id = ? ORDER BY position`).bind(existing.id).all()).results || []) : [];
   return {
     businessDate,
     currentBusinessDate: today,
@@ -161,6 +164,8 @@ async function dayStatus(url, env, user) {
     canSave: !existing && businessDate === today,
     canReplace: access.canReplace,
     isOwner: access.owner,
+    canCorrect: access.canCorrect,
+    isAdmin: access.canCorrect && !access.owner,
     isDaySubmitter: access.daySubmitter,
     calculation: existing ? {
       id: existing.id,
@@ -168,6 +173,7 @@ async function dayStatus(url, env, user) {
       morningKopecks: Number(existing.morning_kopecks),
       eveningKopecks: Number(existing.evening_kopecks),
       participantCount: Number(existing.participant_count),
+      employees: [1, 2, 3].map(position => positions.find(row => Number(row.position) === position)?.employee_name || ''),
       createdByName: existing.created_by_name || '',
       createdAt: existing.created_at,
     } : null,
@@ -197,12 +203,12 @@ async function saveCalculation(request, env, user) {
   }
 
   if (existing && replace) {
-    const access = replacementAccess(existing, businessDate, user, env);
+    const access = await replacementAccess(existing, businessDate, user, env);
     if (!access.canReplace) {
       if (businessDate !== today) {
-        throw new ApiError(403, 'После 00:00 исправлять прошлые дни может только владелец.');
+        throw new ApiError(403, 'После 00:00 исправлять прошлые дни может только владелец или назначенный администратор.');
       }
-      throw new ApiError(403, 'До 00:00 исправить расчёт может только сотрудник, который сохранил его первым, или владелец.');
+      throw new ApiError(403, 'До 00:00 исправить расчёт может автор смены, владелец или назначенный администратор.');
     }
   }
 
@@ -390,7 +396,8 @@ async function updateStaffAccess(request, env, user) {
   if (employeeName && !EMPLOYEES.includes(employeeName)) throw new ApiError(400, 'Неизвестный сотрудник.');
   if (active && !employeeName) throw new ApiError(400, 'Выбери сотрудника для выдачи доступа.');
 
-  return saveStaffAccess(env, { telegramId, employeeName, active }, String(user.id));
+  const canCorrect = body.canCorrect === undefined ? undefined : body.canCorrect === true;
+  return saveStaffAccess(env, { telegramId, employeeName, active, canCorrect }, String(user.id));
 }
 
 export default {
@@ -403,12 +410,16 @@ export default {
       if (url.pathname === '/api/health' && request.method === 'GET') return json({ ok: true }, 200, cors);
       if (url.pathname === '/api/whoami' && request.method === 'GET') {
         const user = await authenticate(request, env, { requireAllowlist: false });
+        const owner = isOwner(user, env);
+        const correctionAccess = owner ? null : await resolveStaffAccess(env, String(user.id));
         return json({
           id: String(user.id),
           firstName: user.first_name || '',
           lastName: user.last_name || '',
           username: user.username || '',
-          isOwner: isOwner(user, env),
+          isOwner: owner,
+          canCorrect: owner || Boolean(correctionAccess?.canCorrect),
+          isAdmin: Boolean(!owner && correctionAccess?.canCorrect),
           currentBusinessDate: businessDateNow(),
         }, 200, cors);
       }

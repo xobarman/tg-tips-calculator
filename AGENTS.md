@@ -22,5 +22,8 @@ Telegram Mini App for calculating and recording staff tip distributions.
 - Replaced calculation rows remain only as an audit trail and must not affect normal history, monthly counters, or outstanding balances.
 - Actual employee payouts are a separate ledger from tip calculations. Only the configured owner Telegram ID may record payouts.
 - Displayed outstanding balances are distributed tips minus recorded payouts for the selected period/month.
-- Monthly counters are derived by calendar-month date range, never by deleting history. A new month starts at zero while prior months remain queryable.
+- Historical corrections also belong to owner-appointed administrators: an active D1 staff row with `can_correct = 1`. Administrators cannot manage staff access or record payments.
+- The accumulating balance is calculated for 1–15 and 16–last-day Moscow periods. After midnight following the 15th or month end it becomes part of "accrued"; active calculation rows and payments are never removed.
+- Payments settle older accrued balances before current-period balances. Owner/admin corrections update those derived balances and can expose an overpayment.
+- The original range-based summary and full payment and audit histories remain available.
 - Prefer minimal changes and a small vertical slice over additional infrastructure.

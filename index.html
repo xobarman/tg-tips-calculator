@@ -61,16 +61,22 @@
       <section id="monthlyCard" class="card monthly-card" hidden>
         <div class="monthly-head">
           <div>
-            <div class="eyebrow">Остаток месяца</div>
+            <div class="eyebrow">Накапливается · текущая половина</div>
             <div id="monthlyLabel" class="monthly-label">Текущий месяц</div>
           </div>
           <span class="live-dot" title="Считается по сохранённым записям"></span>
         </div>
         <div id="monthlyTotal" class="monthly-total">0,00 ₽</div>
-        <div id="monthlyCaption" class="monthly-caption">К выплате после учёта выплат</div>
+        <div id="monthlyCaption" class="monthly-caption">После закрытия половины месяца перейдёт в начисленные</div>
         <div id="monthlyPeople" class="monthly-people"></div>
       </section>
 
+      <section id="accruedCard" class="card monthly-card accrued-card" hidden>
+        <div class="monthly-head"><div><div class="eyebrow">Начислено · закрытые периоды</div><div class="monthly-label">Не выплачено</div></div></div>
+        <div id="accruedTotal" class="monthly-total">0,00 ₽</div>
+        <div class="monthly-caption">Закрытые начисления с учётом выплат. Выплаты сначала вычитаются отсюда.</div>
+        <div id="accruedPeople" class="monthly-people"></div>
+      </section>
       <section class="card calculator-card">
         <div class="section-title">Смена</div>
         <div class="field">
@@ -161,7 +167,7 @@
 
       <section id="summaryCard" class="card summary-card" hidden>
         <div class="eyebrow">Итог периода</div>
-        <h2>Осталось к выплате</h2>
+        <h2>Сальдо выбранного периода</h2>
         <div id="summaryLines"></div>
       </section>
 
@@ -186,7 +192,7 @@
         <div class="field">
           <label for="paymentAmount">Выплачено</label>
           <input id="paymentAmount" inputmode="decimal" autocomplete="off" placeholder="Например, 5000" />
-          <div class="hint">Дата определяет месяц, из которого выплата вычитается. Сумма не может быть больше остатка сотрудника за этот месяц.</div>
+          <div class="hint">Дата — дата фактической выплаты. Сначала уменьшаются начисленные остатки, затем текущая половина.</div>
         </div>
         <button id="savePayment" class="compact-button">Записать выплату</button>
         <div id="paymentStatus" class="status"></div>
@@ -209,6 +215,7 @@
           <label for="staffAccessEmployee">Сотрудник</label>
           <select id="staffAccessEmployee"></select>
         </div>
+        <label class="staff-role-field"><input id="staffAccessCanCorrect" type="checkbox" /> Разрешить исправление расчётов за любой день (администратор)</label>
         <button id="saveStaffAccess" class="compact-button" type="button">Добавить / обновить</button>
         <div id="staffAccessStatus" class="status"></div>
         <div id="staffAccessList" class="staff-access-list"></div>

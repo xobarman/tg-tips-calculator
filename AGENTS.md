@@ -13,7 +13,8 @@ Telegram Mini App for calculating and recording staff tip distributions.
 - With one waiter, the sole waiter receives the entire common and `morning + evening` net amounts (8% fee applied as before).
 - With two or three waiters, waiters 1 and 2 receive both the common share and the `morning + evening` share. Waiter 3 receives only the common share.
 - The common share is divided among all selected waiters; the shift share is divided among up to the first two waiters.
-- Allowed employee names: Александр, Александра, Анна, Арсик, Снежа.
+- Tip-eligible waiters only: Александр, Александра, Анна, Арсик, Снежа. Do not add non-waiter staff to this money-recipient list.
+- Staff access identities additionally allow Инга, but Инга MUST NOT appear in waiter selectors, tip calculation participants, financial summaries or payout recipient selectors. Staff access is granted via owner's Telegram ID form; default correction permission stays false.
 - The same employee cannot occupy two waiter positions in one calculation.
 - Server-side code must recalculate payouts; never trust payout totals submitted by the client.
 - Telegram `initData` must be validated server-side before reading or writing financial history.

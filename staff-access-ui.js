@@ -1,5 +1,5 @@
 const tg = window.Telegram?.WebApp;
-const EMPLOYEES = ['Александр', 'Александра', 'Анна', 'Арсик', 'Снежа'];
+const STAFF_ACCESS_NAMES = ['Александр', 'Александра', 'Анна', 'Арсик', 'Снежа', 'Инга'];
 
 const card = document.getElementById('staffAccessCard');
 const list = document.getElementById('staffAccessList');
@@ -44,7 +44,7 @@ async function request(path, options = {}) {
 function populateEmployees() {
   if (!employeeSelect || employeeSelect.options.length) return;
   employeeSelect.innerHTML = '<option value="">Выберите сотрудника</option>' +
-    EMPLOYEES.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+    STAFF_ACCESS_NAMES.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
 }
 
 function render(items) {

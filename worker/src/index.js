@@ -2,7 +2,7 @@ import { EMPLOYEES, FEE_PERCENT, calculateDistribution } from './calc.js';
 import { auditHistory } from './audit-history.js';
 import { canCreateCalculationForDate } from './day-access.js';
 import { closedPeriodsBefore, FIRST_AUTO_PERIOD_START } from './accruals.js';
-import { listStaffAccess, resolveStaffAccess, saveStaffAccess, validateTelegramId } from './staff-access.js';
+import { STAFF_ACCESS_NAMES, listStaffAccess, resolveStaffAccess, saveStaffAccess, validateTelegramId } from './staff-access.js';
 
 const encoder = new TextEncoder();
 const BUSINESS_TIME_ZONE = 'Europe/Moscow';
@@ -430,7 +430,7 @@ async function updateStaffAccess(request, env, user) {
 
   const employeeName = String(body.employeeName || '').trim();
   const active = body.active !== false;
-  if (employeeName && !EMPLOYEES.includes(employeeName)) throw new ApiError(400, 'Неизвестный сотрудник.');
+  if (employeeName && !STAFF_ACCESS_NAMES.includes(employeeName)) throw new ApiError(400, 'Неизвестный сотрудник.');
   if (active && !employeeName) throw new ApiError(400, 'Выбери сотрудника для выдачи доступа.');
 
   const canCorrect = body.canCorrect === undefined ? undefined : body.canCorrect === true;

@@ -27,3 +27,23 @@ test('28/29/30/31-day month ends and year rollovers', () => {
 test('invalid dates cannot be close checkpoints', () => {
   assert.throws(() => closedPeriodsBefore('2027-02-29'),/Invalid business date/);
 });
+
+import { periodOutstandingKopecks } from '../src/accruals.js';
+
+test('paying an older debt within the selected dates does not create negative current-period debt', () => {
+  // Previous 1–15 earnings 28,010.95 ₽; on 16th, 22,532.50 ₽ paid for older tips;
+  // newly earned in 16–31 period: 19,182.32 ₽.
+  assert.equal(periodOutstandingKopecks(2801095, 1918232, 2253250), 1918232);
+});
+test('payments exceeding older debts only reduce selected period earnings, not below zero', () => {
+  assert.equal(periodOutstandingKopecks(10000, 6000, 12000), 4000);
+  assert.equal(periodOutstandingKopecks(10000, 6000, 22000), 0);
+});
+test('paid later still reduces selected older tip debt, older obligations first', () => {
+  assert.equal(periodOutstandingKopecks(10000, 20000, 25000), 5000);
+  assert.equal(periodOutstandingKopecks(10000, 20000, 0), 20000);
+});
+test('invalid financial values never become an apparent debt', () => {
+  assert.throws(()=>periodOutstandingKopecks(0,-1,0),/Invalid/);
+  assert.throws(()=>periodOutstandingKopecks(0,1,1.5),/Invalid/);
+});

@@ -73,3 +73,11 @@ Test idempotent auto-payment settlement in DEV and verify original monthly UI; t
 - All net common and net `morning + evening` tips go to that one waiter; 8% fee, historical 2/3 person rules, integer kopeck rounding and server-side recalculation are unchanged.
 - UI allows `Нет второго` and disables the third selector until waiter 2 is selected.
 - Validate unit tests and DEV live page before production release; no schema changes, no modifications to existing financial data.
+
+## 2026-10-21: Инга — доступ без участия в распределении чаевых
+- В `Доступ сотрудников` можно выбрать имя `Инга` и выдать Telegram-доступ через существующую форму владельца.
+- Имя `Инга` отсутствует в `EMPLOYEES` калькулятора, выборе официантов, выплатах и распределении сумм.
+- Отдельные списки: `STAFF_ACCESS_NAMES` разрешает Ингу для авторизации, `EMPLOYEES` остаётся неизменным для начислений.
+- Назначение существующих административных прав остаётся отдельным явным флажком (по умолчанию выключен).
+- Для реальной выдачи доступа требуется Telegram ID Инги. Поскольку ID не предоставлен, никакой доступ в production не создавался.
+- Изменения проверяются в DEV до отдельного разрешения на production.

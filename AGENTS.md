@@ -34,3 +34,8 @@ Telegram Mini App for calculating and recording staff tip distributions.
 - Prefer minimal changes and a small vertical slice over additional infrastructure.
 
 - D1 originally enforced participant_count IN (2,3) even after one-waiter UI/server logic shipped. Migration 0007 rebuilds BOTH calculations and payouts together to preserve their foreign-key relationship and historical rows; NEVER drop calculations while old payouts still reference it (ON DELETE CASCADE). Test the migration against populated financial data and verify PRAGMA foreign_key_check before production.
+
+- Telegram group reporting is opt-in: only after an authorized calculation is successfully committed to D1, send ONE complete human-readable report for that saved version (including historical corrections); never post on local preview or failed save.
+- Group reports show the actual current fixed 8% fee, common share 1/N and shift share 1/min(2,N), inputs (total/morning/evening), and per-employee net payouts. No configurable business coefficients have been introduced.
+- The recipient group is configured per Cloudflare Worker with secret TIPS_GROUP_CHAT_ID (negative numeric Telegram group ID); DEV and PROD secrets are separate. Never hardcode chat IDs or tokens.
+- Report delivery is best-effort and must not alter the financial transaction outcome; the API and UI report sent/failed/not_configured separately. Never encourage saving the same day again on Telegram failure.

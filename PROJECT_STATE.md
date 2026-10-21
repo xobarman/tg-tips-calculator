@@ -97,3 +97,11 @@ Test idempotent auto-payment settlement in DEV and verify original monthly UI; t
 - Additive forward migration 0007 recreates `calculations` with participant_count IN (1,2,3), and recreates `payouts` as new child to avoid SQLite/D1 ON DELETE CASCADE wiping financial rows.
 - Existing calculation history (including replaced audit rows), all payouts, payments, staff access and close markers must remain byte-equivalent. Indexes and foreign-key cascade recreated. No UI/business rule changes.
 - Add populated-SQLite integrity regression test to CI. Verify D1 dev migration runs successfully before production release.
+
+## 2026-10-21: Telegram group report after calculation save (DEV)
+- User requested an automatic SINGLE message to the existing Telegram group whenever a shift calculation is saved, including each correction.
+- Backend sends to Bot API `sendMessage` only AFTER successful D1 batch; never on preview/invalid save. Reports contain date, actor, gross total, morning/evening, common share, fee=8%, net share coefficients 1/N and 1/min(2,N), and final per-waiter distributions.
+- Group notifications do not change calculations, payments, scheduled payouts or access controls.
+- Opt-in Cloudflare Worker secret `TIPS_GROUP_CHAT_ID` per environment; absent => no message, no user-visible false success. Bot must be group member and permitted to send.
+- Failed Telegram delivery returns `groupNotification.status=failed` in successful save response; UI reports it clearly WITHOUT suggesting re-saving, to avoid duplicate finance records.
+- No group chat ID is known/provided yet; DEV can validate offline with injected send fetch. Need exact group ID and bot membership to run live group E2E. No production promotion before approval.

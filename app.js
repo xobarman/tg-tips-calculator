@@ -252,8 +252,14 @@ async function saveCalculation() {
   $('save').disabled = true;
   setStatus($('saveStatus'), replacing ? 'Сохраняю исправление…' : 'Сохраняю…');
   try {
-    await api('/api/calculations', { method: 'POST', body: JSON.stringify({ ...lastCalculation, replace: replacing }) });
-    setStatus($('saveStatus'), replacing ? 'Исправленный расчёт сохранён.' : 'Сохранено в историю.', 'ok');
+    const saved = await api('/api/calculations', { method: 'POST', body: JSON.stringify({ ...lastCalculation, replace: replacing }) });
+    const notice = saved.groupNotification?.status;
+    const baseMessage = replacing ? 'Исправленный расчёт сохранён.' : 'Сохранено в историю.';
+    setStatus($('saveStatus'), notice === 'failed'
+      ? baseMessage + ' Но сообщение в Telegram-группу отправить не удалось. Повторно сохранять день не нужно.'
+      : notice === 'sent'
+        ? baseMessage + ' Отчёт отправлен в Telegram-группу.'
+        : baseMessage, notice === 'failed' ? 'owner' : 'ok');
     tg?.HapticFeedback?.notificationOccurred('success');
     await Promise.all([loadDayStatus(), loadMonthlyCounter()]);
   } catch (e) {

@@ -32,3 +32,17 @@ export function closedPeriodsBefore(todayIso) {
   }
   return dates;
 }
+
+/**
+ * Unsettled part of tips earned within the selected interval, as of today.
+ * Payments are attributed oldest earned tips first (FIFO).
+ * Payment recording dates are unrelated to the earning period they settle.
+ */
+export function periodOutstandingKopecks(earnedBefore, earnedInPeriod, paidThroughToday) {
+  for (const value of [earnedBefore, earnedInPeriod, paidThroughToday]) {
+    if (!Number.isSafeInteger(value) || value < 0) throw new Error('Invalid ledger amount');
+  }
+  const oldestAndPeriodOutstanding = Math.max(0, earnedBefore + earnedInPeriod - paidThroughToday);
+  const olderOutstanding = Math.max(0, earnedBefore - paidThroughToday);
+  return oldestAndPeriodOutstanding - olderOutstanding;
+}

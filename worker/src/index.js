@@ -1,7 +1,7 @@
 import { EMPLOYEES, FEE_PERCENT, calculateDistribution } from './calc.js';
 import { auditHistory } from './audit-history.js';
 import { canCreateCalculationForDate } from './day-access.js';
-import { closedPeriodsBefore, FIRST_AUTO_PERIOD_START } from './accruals.js';
+import { closedPeriodsBefore, FIRST_AUTO_PERIOD_START, periodOutstandingKopecks } from './accruals.js';
 import { STAFF_ACCESS_NAMES, listStaffAccess, resolveStaffAccess, saveStaffAccess, validateTelegramId } from './staff-access.js';
 
 const encoder = new TextEncoder();
@@ -321,6 +321,53 @@ async function summary(url, env) {
   });
 }
 
+
+/**
+ * Debt for tips earned in [from,to] outstanding AS OF today.
+ * Payments are used to settle older earning periods before newer ones.
+ * 'paidKopecks' is separate: payments whose transaction dates are [from,to].
+ * This endpoint intentionally does not change /api/summary or the original
+ * single monthly balance card.
+ */
+async function periodBalance(url, env) {
+  const from = parseDate(url.searchParams.get('from'));
+  const to = parseDate(url.searchParams.get('to'));
+  if (from > to) throw new ApiError(400, 'Начальная дата не может быть позже конечной.');
+  const asOf = businessDateNow();
+  const effectiveTo = to < asOf ? to : asOf;
+  const rows = (await env.DB.prepare(`WITH ledger AS (
+    SELECT p.employee_name, c.business_date, p.amount_kopecks AS earned, 0 AS paid
+    FROM payouts p JOIN calculations c ON c.id = p.calculation_id
+    WHERE c.is_active = 1 AND c.business_date <= ?
+    UNION ALL
+    SELECT employee_name, business_date, 0 AS earned, amount_kopecks AS paid
+    FROM payments WHERE business_date <= ?
+  )
+  SELECT employee_name,
+    COALESCE(SUM(CASE WHEN business_date < ? THEN earned ELSE 0 END), 0) AS earned_before,
+    COALESCE(SUM(CASE WHEN business_date BETWEEN ? AND ? THEN earned ELSE 0 END), 0) AS earned_period,
+    COALESCE(SUM(paid), 0) AS paid_all,
+    COALESCE(SUM(CASE WHEN business_date BETWEEN ? AND ? THEN paid ELSE 0 END), 0) AS paid_period
+  FROM ledger GROUP BY employee_name`)
+    .bind(asOf, asOf, from, from, effectiveTo, from, effectiveTo).all()).results || [];
+
+  const byName = new Map(rows.map(row => {
+    const earnedBefore = Number(row.earned_before || 0);
+    const earnedPeriod = Number(row.earned_period || 0);
+    const paidAll = Number(row.paid_all || 0);
+    return [row.employee_name, {
+      employeeName: row.employee_name,
+      paidKopecks: Number(row.paid_period || 0),
+      dueKopecks: periodOutstandingKopecks(earnedBefore, earnedPeriod, paidAll),
+    }];
+  }));
+  return {
+    from, to, asOf,
+    items: EMPLOYEES.map(employeeName => byName.get(employeeName) ||
+      { employeeName, paidKopecks: 0, dueKopecks: 0 }),
+  };
+}
+
 async function employeeOutstanding(env, employeeName) {
   const row = await env.DB.prepare(`SELECT
     COALESCE((SELECT SUM(p.amount_kopecks) FROM payouts p JOIN calculations c ON c.id=p.calculation_id WHERE c.is_active=1 AND p.employee_name=?),0) AS distributed_kopecks,
@@ -466,7 +513,7 @@ export default {
 
       const user = await authenticate(request, env);
       // Lazy reconciliation also closes periods if a scheduled trigger was delayed.
-      if (['/api/summary', '/api/payments', '/api/calculations'].includes(url.pathname)) {
+      if (['/api/summary', '/api/period-balance', '/api/payments', '/api/calculations'].includes(url.pathname)) {
         await settleClosedPeriods(env);
       }
       if (url.pathname === '/api/day-status' && request.method === 'GET') return json(await dayStatus(url, env, user), 200, cors);
@@ -474,6 +521,7 @@ export default {
       if (url.pathname === '/api/history' && request.method === 'GET') return json({ items: await history(url, env) }, 200, cors);
       if (url.pathname === '/api/audit-history' && request.method === 'GET') return json({ items: await auditHistory(url, env) }, 200, cors);
       if (url.pathname === '/api/summary' && request.method === 'GET') return json({ items: await summary(url, env) }, 200, cors);
+      if (url.pathname === '/api/period-balance' && request.method === 'GET') return json(await periodBalance(url, env), 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'GET') return json({ items: await payments(url, env) }, 200, cors);
       if (url.pathname === '/api/payments' && request.method === 'POST') return json(await savePayment(request, env, user), 201, cors);
       if (url.pathname === '/api/staff-access' && request.method === 'GET') return json({ items: await staffAccessList(env, user) }, 200, cors);

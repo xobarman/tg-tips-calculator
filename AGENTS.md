@@ -32,3 +32,5 @@ Telegram Mini App for calculating and recording staff tip distributions.
 - These records are **scheduled bank payouts as reported by the owner, not verified bank transfers**. The application has no bank API integration, so never represent it as an externally confirmed transaction. Real recorded manual payments remain in the ledger and are subtracted before automatic close.
 - All per-day calculations, manual payouts, corrections and audit history stay intact; no deletion or destructive resetting.
 - Prefer minimal changes and a small vertical slice over additional infrastructure.
+
+- D1 originally enforced participant_count IN (2,3) even after one-waiter UI/server logic shipped. Migration 0007 rebuilds BOTH calculations and payouts together to preserve their foreign-key relationship and historical rows; NEVER drop calculations while old payouts still reference it (ON DELETE CASCADE). Test the migration against populated financial data and verify PRAGMA foreign_key_check before production.

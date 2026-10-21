@@ -1,3 +1,9 @@
+import { EMPLOYEES } from './calc.js';
+
+// Login/access identities are not all recipients of tips.
+// Keep non-waiter staff out of EMPLOYEES, calculations and payout selectors.
+export const STAFF_ACCESS_NAMES = [...EMPLOYEES, 'Инга'];
+
 export function legacyAllowedIds(value) {
   return [...new Set(String(value || '')
     .split(',')

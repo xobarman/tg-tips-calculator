@@ -277,9 +277,13 @@ function setPeriod(kind) {
   $('toDate').value = isoUtcDate(end);
 }
 
-function renderSummary(items) {
+function renderSummary(items, asOf) {
+  $('periodSummaryHint').textContent = `Долг на ${asOf.split('-').reverse().join('.')} · выплаты по датам выбранного периода`;
   $('summaryLines').innerHTML = items.length ? items.map(i =>
-    `<div class="summary-line balance-line"><span>${i.employeeName}<small>Распределено ${moneyKopecks(i.distributedKopecks)} · выплачено ${moneyKopecks(i.paidKopecks)}</small></span><b>${moneyKopecks(i.dueKopecks)}</b></div>`
+    `<div class="summary-line period-balance-line">
+      <div class="period-balance-person"><strong>${i.employeeName}</strong><small>Выплачено: ${moneyKopecks(i.paidKopecks)}</small></div>
+      <div class="period-balance-due"><small>Должны</small><strong>${moneyKopecks(i.dueKopecks)}</strong></div>
+    </div>`
   ).join('') : '<div class="status">Нет данных.</div>';
   $('summaryCard').hidden = false;
 }
@@ -298,11 +302,11 @@ async function loadHistory() {
   try {
     const [history, summary, paymentHistory] = await Promise.all([
       api(`/api/history?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${employee ? `&employee=${encodeURIComponent(employee)}` : ''}`),
-      api(`/api/summary?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+      api(`/api/period-balance?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
       api(`/api/payments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
     ]);
-    renderSummary(summary.items);
-    renderPaymentHistory(paymentHistory.items);
+    renderSummary(summary.items.filter(item => !employee || item.employeeName === employee), summary.asOf);
+    renderPaymentHistory(paymentHistory.items.filter(item => !employee || item.employeeName === employee));
     $('historyList').innerHTML = history.items.length ? history.items.map(item => `<article class="card history-card"><h3>${item.businessDate}</h3><div class="history-meta">Итог ${moneyKopecks(item.totalKopecks)} · сохранил ${item.createdByName || 'Telegram'}</div>${item.payouts.map(p => `<div class="result-line"><span>${p.employeeName}</span><b>${moneyKopecks(p.amountKopecks)}</b></div>`).join('')}</article>`).join('') : '<section class="card"><div class="status">За этот период записей нет.</div></section>';
     setStatus($('historyStatus'), '');
   } catch (e) { setStatus($('historyStatus'), e.message, 'bad'); }

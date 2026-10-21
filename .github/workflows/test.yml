@@ -25,6 +25,7 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+      - run: python3 test/migration_single_waiter.py
       - run: node --check src/index.js
       - run: node --check src/audit-history.js
       - run: node --check ../audit-ui.js

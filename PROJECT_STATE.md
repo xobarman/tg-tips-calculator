@@ -90,3 +90,10 @@ Test idempotent auto-payment settlement in DEV and verify original monthly UI; t
 - В карточке «Итог периода» только «Выплачено» и «Должны». Существующий фильтр сотрудника действует и для карточки/истории выплат.
 - Главная карточка «Остаток месяца» использует старый `GET /api/summary` без изменений. Финансовые записи не меняются. Никаких миграций.
 - Только DEV до отдельного явного разрешения на релиз.
+
+## 2026-10-21: Критичный баг D1 — сохранение одиночной смены
+- Screenshot: calculation for Анна, 1 waiter, gross 2933 ₽, net 2698.36 ₽; save fails with `CHECK constraint failed: participant_count IN (2, 3)`.
+- Code supports 1 waiter, but original D1 table restriction still only allowed 2 or 3. Not a Telegram permission error and not a calculation error.
+- Additive forward migration 0007 recreates `calculations` with participant_count IN (1,2,3), and recreates `payouts` as new child to avoid SQLite/D1 ON DELETE CASCADE wiping financial rows.
+- Existing calculation history (including replaced audit rows), all payouts, payments, staff access and close markers must remain byte-equivalent. Indexes and foreign-key cascade recreated. No UI/business rule changes.
+- Add populated-SQLite integrity regression test to CI. Verify D1 dev migration runs successfully before production release.

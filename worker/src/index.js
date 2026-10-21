@@ -1,5 +1,6 @@
 import { EMPLOYEES, FEE_PERCENT, calculateDistribution } from './calc.js';
 import { auditHistory } from './audit-history.js';
+import { notifyCalculationGroup } from './group-report.js';
 import { canCreateCalculationForDate } from './day-access.js';
 import { closedPeriodsBefore, FIRST_AUTO_PERIOD_START, periodOutstandingKopecks } from './accruals.js';
 import { STAFF_ACCESS_NAMES, listStaffAccess, resolveStaffAccess, saveStaffAccess, validateTelegramId } from './staff-access.js';
@@ -250,7 +251,16 @@ async function saveCalculation(request, env, user) {
     throw error;
   }
 
-  return { id, businessDate, replaced: Boolean(existing), ...result };
+  const groupNotification = await notifyCalculationGroup(env, {
+    businessDate,
+    replaced: Boolean(existing),
+    createdByName: displayName,
+    totalKopecks,
+    morningKopecks,
+    eveningKopecks,
+    result,
+  });
+  return { id, businessDate, replaced: Boolean(existing), ...result, groupNotification };
 }
 
 async function history(url, env) {
